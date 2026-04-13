@@ -1,30 +1,35 @@
 {
   "Index": {
-    "title": "Strumenti XAGRIA",
-    "subtitle": "Precisione per l'agricoltura",
+    "subtitle": "Precisione senza attrito",
+    "comingSoon": "Altri strumenti in arrivo"
   },
   "Common": {
-    "calculate": "Calcola",
+    "metric": "Metrico",
+    "american": "US",
     "copy": "Copia",
     "share": "Condividi",
-    "download": "Scarica TXT",
-    "units": "Unità",
-    "metric": "Metrico",
-    "american": "Americano"
+    "download": "Scarica",
+    "back": "Indietro",
+    "language": "Lingua"
   },
   "TankMix": {
-    "name": "Miscela Serbatoio",
-    "desc": "Calcolo miscela fitosanitaria",
-    "labelTank": "Capacità Botte",
-    "labelRate": "Volume di Distribuzione",
-    "labelConcentration": "Dose Prodotto",
-    "result": "Prodotto da aggiungere in botte"
+    "name": "Miscela serbatoio",
+    "desc": "Calcola la quantità esatta di prodotto necessaria per un pieno completo della botte irroratrice.",
+    "labelTank": "Capacità serbatoio",
+    "labelRate": "Volume di applicazione",
+    "labelConcentration": "Dose di prodotto",
+    "result": "Prodotto necessario"
   },
   "HarvestLoss": {
-    "name": "Perdita Raccolto",
-    "desc": "Efficienza mietitrebbia",
+    "name": "Perdita di raccolta",
+    "desc": "Stima la perdita di raccolta in base alla granella contata nell'area campione dietro la mietitrebbia.",
     "labelSeeds": "Semi contati",
-    "labelArea": "Area di saggio",
-    "result": "Perdita stimata"
+    "result": "Perdita stimata",
+    "note": "È solo una stima di campo. Conferma sempre in base alla coltura, alla larghezza della barra, alla velocità e alla taratura della macchina."
+  },
+  "NotFoundPage": {
+    "title": "Quel campo non esiste.",
+    "body": "Il percorso richiesto è finito felicemente in mezzo alle erbacce.",
+    "cta": "Torna a XAGRIA"
   }
 }
