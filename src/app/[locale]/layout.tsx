@@ -30,17 +30,17 @@ export default async function LocaleLayout({
   return (
     <NextIntlClientProvider messages={messages}>
       <AgriProvider>
-        <div className="mx-auto flex min-h-screen max-w-4xl flex-col px-4 pb-28">
-          <nav className="flex items-center justify-between gap-4 py-6">
-            <div className="flex items-center gap-3">
+        <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 pb-28 sm:px-6 lg:px-8">
+          <nav className="flex items-center justify-between gap-3 py-5 sm:py-6">
+            <div className="flex items-center shrink-0">
               <img
                 src="/xagria-white-logo.png"
                 alt="XAGRIA"
-                className="h-6 w-auto object-contain"
+                className="h-10 w-auto object-contain sm:h-12 md:h-14"
               />
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2 overflow-x-auto whitespace-nowrap">
               <LocaleSwitcher />
               <UnitToggle />
             </div>
@@ -49,10 +49,18 @@ export default async function LocaleLayout({
           <main className="flex-1">{children}</main>
         </div>
 
-        <footer className="fixed bottom-0 left-0 right-0 border-t border-white/5 bg-surface/80 p-4 backdrop-blur-md print:hidden">
-          <div className="mx-auto flex max-w-4xl items-center justify-center">
-            <div className="flex h-12 w-full max-w-sm items-center justify-center rounded-xl border border-white/5 bg-background text-[10px] font-bold uppercase tracking-widest text-gray-600">
-              XAGRIA · Precision without Friction
+        <footer className="fixed bottom-0 left-0 right-0 border-t border-white/5 bg-surface/90 p-4 backdrop-blur-md print:hidden">
+          <div className="mx-auto flex max-w-6xl items-center justify-center px-4 text-center">
+            <div className="text-[11px] font-bold tracking-wide text-gray-400">
+              XAGRIA · Precision without Friction · brought to you with love ❤️ by{' '}
+              <a
+                href="https://sienda.co.uk"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand hover:underline"
+              >
+                Sienda Ltd
+              </a>
             </div>
           </div>
         </footer>
