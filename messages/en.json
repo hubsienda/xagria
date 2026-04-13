@@ -1,30 +1,35 @@
 {
   "Index": {
-    "title": "XAGRIA Tools",
-    "subtitle": "Precision at your fingertips"
+    "subtitle": "Precision without Friction",
+    "comingSoon": "More tools coming soon"
   },
   "Common": {
-    "calculate": "Calculate",
+    "metric": "Metric",
+    "american": "US",
     "copy": "Copy",
     "share": "Share",
-    "download": "Download TXT",
-    "units": "Units",
-    "metric": "Metric",
-    "american": "American"
+    "download": "Download",
+    "back": "Back",
+    "language": "Language"
   },
   "TankMix": {
     "name": "Tank Mix",
-    "desc": "Calculate product per tank",
-    "labelTank": "Tank Capacity",
-    "labelRate": "Application Rate",
-    "labelConcentration": "Product Dose",
-    "result": "Amount to add per tank"
+    "desc": "Calculate the exact product amount required for one full sprayer tank.",
+    "labelTank": "Tank size",
+    "labelRate": "Spray volume",
+    "labelConcentration": "Product dose",
+    "result": "Product needed"
   },
   "HarvestLoss": {
     "name": "Harvest Loss",
-    "desc": "Check combine efficiency",
+    "desc": "Estimate harvest loss from grain counted in a sample area behind the combine.",
     "labelSeeds": "Seeds counted",
-    "labelArea": "Counting Area",
-    "result": "Estimated loss"
+    "result": "Estimated loss",
+    "note": "Field estimate only. Always confirm with crop type, header width, ground speed and machine setup."
+  },
+  "NotFoundPage": {
+    "title": "That field does not exist.",
+    "body": "The route you asked for wandered off into the weeds.",
+    "cta": "Return to XAGRIA"
   }
 }
