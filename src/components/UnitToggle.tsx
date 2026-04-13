@@ -12,7 +12,7 @@ export default function UnitToggle() {
       <button
         type="button"
         onClick={() => setUnits('metric')}
-        className={`rounded-full px-3 py-1 text-[10px] font-black transition-all ${
+        className={`rounded-full px-2.5 py-1 text-[10px] font-black transition-all sm:px-3 ${
           units === 'metric' ? 'bg-brand text-black' : 'text-gray-500'
         }`}
       >
@@ -21,7 +21,7 @@ export default function UnitToggle() {
       <button
         type="button"
         onClick={() => setUnits('american')}
-        className={`rounded-full px-3 py-1 text-[10px] font-black transition-all ${
+        className={`rounded-full px-2.5 py-1 text-[10px] font-black transition-all sm:px-3 ${
           units === 'american' ? 'bg-brand text-black' : 'text-gray-500'
         }`}
       >
