@@ -1,39 +1,32 @@
 'use client';
 
-import { useAgri } from '@/context/AgriContext';
-import { useTranslations } from 'next-intl';
+import {useAgri} from '@/context/AgriContext';
+import {useTranslations} from 'next-intl';
 
 export default function UnitToggle() {
-  const { units, toggleUnits } = useAgri();
+  const {units, setUnits} = useAgri();
   const t = useTranslations('Common');
 
-  const activeStyle = {
-    backgroundColor: '#ADFF2F',
-    color: '#000000'
-  };
-
-  const inactiveStyle = {
-    color: '#6b7280'
-  };
-
   return (
-    <button 
-      onClick={toggleUnits}
-      className="flex items-center gap-1 border border-white/10 p-1 rounded-full overflow-hidden"
-      style={{ backgroundColor: '#171717' }}
-    >
-      <div 
-        className="px-3 py-1 rounded-full text-[10px] font-black transition-all"
-        style={units === 'metric' ? activeStyle : inactiveStyle}
+    <div className="flex items-center gap-1 overflow-hidden rounded-full border border-white/10 bg-surface p-1">
+      <button
+        type="button"
+        onClick={() => setUnits('metric')}
+        className={`rounded-full px-3 py-1 text-[10px] font-black transition-all ${
+          units === 'metric' ? 'bg-brand text-black' : 'text-gray-500'
+        }`}
       >
         {t('metric')}
-      </div>
-      <div 
-        className="px-3 py-1 rounded-full text-[10px] font-black transition-all"
-        style={units === 'american' ? activeStyle : inactiveStyle}
+      </button>
+      <button
+        type="button"
+        onClick={() => setUnits('american')}
+        className={`rounded-full px-3 py-1 text-[10px] font-black transition-all ${
+          units === 'american' ? 'bg-brand text-black' : 'text-gray-500'
+        }`}
       >
         {t('american')}
-      </div>
-    </button>
+      </button>
+    </div>
   );
 }
