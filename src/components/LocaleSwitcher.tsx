@@ -20,7 +20,7 @@ export default function LocaleSwitcher() {
           key={code}
           type="button"
           onClick={() => changeLocale(code)}
-          className={`rounded-full px-3 py-1 text-[10px] font-black uppercase transition-all ${
+          className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase transition-all sm:px-3 ${
             locale === code ? 'bg-brand text-black' : 'text-gray-500'
           }`}
           aria-label={`${t('language')} ${code.toUpperCase()}`}
