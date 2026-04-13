@@ -1,7 +1,7 @@
 {
   "Index": {
     "title": "Strumenti XAGRIA",
-    "subtitle": "Precisione a portata di mano"
+    "subtitle": "Precisione per l'agricoltura",
   },
   "Common": {
     "calculate": "Calcola",
@@ -14,17 +14,17 @@
   },
   "TankMix": {
     "name": "Miscela Serbatoio",
-    "desc": "Calcola prodotto per serbatoio",
-    "labelTank": "Capacità Serbatoio",
+    "desc": "Calcolo miscela fitosanitaria",
+    "labelTank": "Capacità Botte",
     "labelRate": "Volume di Distribuzione",
     "labelConcentration": "Dose Prodotto",
-    "result": "Quantità da aggiungere per serbatoio"
+    "result": "Prodotto da aggiungere in botte"
   },
   "HarvestLoss": {
     "name": "Perdita Raccolto",
-    "desc": "Efficienza della mietitrebbia",
+    "desc": "Efficienza mietitrebbia",
     "labelSeeds": "Semi contati",
-    "labelArea": "Area di conteggio",
+    "labelArea": "Area di saggio",
     "result": "Perdita stimata"
   }
 }
