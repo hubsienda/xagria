@@ -1,44 +1,60 @@
-import { NextIntlClientProvider } from 'next-intl';
-import { getMessages } from 'next-intl/server';
-import { AgriProvider } from "@/context/AgriContext";
-import UnitToggle from "@/components/UnitToggle";
-import "@/app/globals.css";
+import {NextIntlClientProvider} from 'next-intl';
+import {getMessages, setRequestLocale} from 'next-intl/server';
+import {hasLocale} from 'next-intl';
+import {notFound} from 'next/navigation';
+import {routing} from '@/i18n/routing';
+import {AgriProvider} from '@/context/AgriContext';
+import UnitToggle from '@/components/UnitToggle';
+import LocaleSwitcher from '@/components/LocaleSwitcher';
+
+export function generateStaticParams() {
+  return routing.locales.map((locale) => ({locale}));
+}
 
 export default async function LocaleLayout({
   children,
   params
 }: {
   children: React.ReactNode;
-  params: Promise<{ locale: string }>;
+  params: Promise<{locale: string}>;
 }) {
-  const { locale } = await params;
+  const {locale} = await params;
+
+  if (!hasLocale(routing.locales, locale)) {
+    notFound();
+  }
+
+  setRequestLocale(locale);
   const messages = await getMessages();
 
   return (
     <html lang={locale}>
-      <body className="antialiased bg-background text-white min-h-screen">
+      <body className="min-h-screen bg-background text-white antialiased">
         <NextIntlClientProvider messages={messages}>
           <AgriProvider>
-            {/* Navigation / Header */}
-            <nav className="flex items-center justify-between p-6 max-w-4xl mx-auto">
-              <img 
-                src="/xagria-white-logo.png" 
-                alt="XAGRIA" 
-                className="h-6 w-auto object-contain"
-              />
-              <UnitToggle />
-            </nav>
-            
-            {/* Main Content Area */}
-            <main className="max-w-4xl mx-auto pb-32">
-              {children}
-            </main>
+            <div className="mx-auto flex min-h-screen max-w-4xl flex-col px-4 pb-28">
+              <nav className="flex items-center justify-between gap-4 py-6">
+                <div className="flex items-center gap-3">
+                  <img
+                    src="/xagria-white-logo.png"
+                    alt="XAGRIA"
+                    className="h-6 w-auto object-contain"
+                  />
+                </div>
 
-            {/* Sticky Ad / Footer */}
-            <footer className="fixed bottom-0 w-full bg-surface/80 backdrop-blur-md border-t border-white/5 p-4 print:hidden">
-              <div className="max-w-4xl mx-auto flex items-center justify-center">
-                <div className="bg-background w-full max-w-sm h-12 rounded-xl flex items-center justify-center text-[10px] text-gray-600 font-bold tracking-widest border border-white/5 uppercase">
-                  Ad Slot • XAGRIA Pro
+                <div className="flex flex-wrap items-center gap-2">
+                  <LocaleSwitcher />
+                  <UnitToggle />
+                </div>
+              </nav>
+
+              <main className="flex-1">{children}</main>
+            </div>
+
+            <footer className="fixed bottom-0 left-0 right-0 border-t border-white/5 bg-surface/80 p-4 backdrop-blur-md print:hidden">
+              <div className="mx-auto flex max-w-4xl items-center justify-center">
+                <div className="flex h-12 w-full max-w-sm items-center justify-center rounded-xl border border-white/5 bg-background text-[10px] font-bold uppercase tracking-widest text-gray-600">
+                  XAGRIA · Precision without Friction
                 </div>
               </div>
             </footer>
