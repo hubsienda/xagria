@@ -3,20 +3,50 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 10, 10, 10;
-  --background-end-rgb: 0, 0, 0;
+  --xagria-bg: #0a0a0a;
+  --xagria-surface: #171717;
+  --xagria-brand: #adff2f;
+  --xagria-text: #ffffff;
+  --xagria-muted: #9ca3af;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--xagria-bg);
 }
 
 body {
-  background: #0A0A0A;
-  color: white;
+  margin: 0;
+  background: var(--xagria-bg);
+  color: var(--xagria-text);
   -webkit-tap-highlight-color: transparent;
+  font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Remove arrows from number inputs */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+input,
+button,
+select {
+  font: inherit;
+}
+
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
+}
+
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+::selection {
+  background: rgba(173, 255, 47, 0.25);
 }
