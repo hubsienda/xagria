@@ -1,34 +1,48 @@
 'use client';
-import React, { createContext, useContext, useState, useEffect } from 'react';
+
+import React, {createContext, useContext, useEffect, useMemo, useState} from 'react';
 
 type Units = 'metric' | 'american';
 
-const AgriContext = createContext({
-  units: 'metric' as Units,
-  toggleUnits: () => {},
-});
-
-export const AgriProvider = ({ children }: { children: React.ReactNode }) => {
-  const [units, setUnits] = useState<Units>('metric');
-
-  useEffect(() => {
-    const saved = localStorage.getItem('xagria-units') as Units;
-    if (saved) setUnits(saved);
-  }, []);
-
-  const toggleUnits = () => {
-    const next = units === 'metric' ? 'american' : 'metric';
-    setUnits(next);
-    localStorage.setItem('xagria-units', next);
-  };
-
-  return (
-    <AgriContext.Provider value={{ units, toggleUnits }}>
-      <div className="min-h-screen bg-background text-white">
-        {children}
-      </div>
-    </AgriContext.Provider>
-  );
+type AgriContextValue = {
+  units: Units;
+  setUnits: (units: Units) => void;
+  toggleUnits: () => void;
 };
 
-export const useAgri = () => useContext(AgriContext);
+const AgriContext = createContext<AgriContextValue | undefined>(undefined);
+
+export function AgriProvider({children}: {children: React.ReactNode}) {
+  const [units, setUnitsState] = useState<Units>('metric');
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem('xagria-units');
+    if (saved === 'metric' || saved === 'american') {
+      setUnitsState(saved);
+    }
+  }, []);
+
+  const setUnits = (value: Units) => {
+    setUnitsState(value);
+    window.localStorage.setItem('xagria-units', value);
+  };
+
+  const toggleUnits = () => {
+    setUnits(units === 'metric' ? 'american' : 'metric');
+  };
+
+  const value = useMemo(
+    () => ({units, setUnits, toggleUnits}),
+    [units]
+  );
+
+  return <AgriContext.Provider value={value}>{children}</AgriContext.Provider>;
+}
+
+export function useAgri() {
+  const context = useContext(AgriContext);
+  if (!context) {
+    throw new Error('useAgri must be used within AgriProvider');
+  }
+  return context;
+}
