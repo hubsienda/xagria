@@ -1,0 +1,17 @@
+{
+  "Index": {
+    "title": "XAGRIA Tools",
+    "subtitle": "Precision at your fingertips"
+  },
+  "TankMix": {
+    "name": "Tank Mix",
+    "desc": "Calculate product per tank",
+    "labelTank": "Tank Capacity",
+    "labelRate": "Application Rate",
+    "btn": "Calculate"
+  },
+  "HarvestLoss": {
+    "name": "Harvest Loss",
+    "desc": "Check combine efficiency"
+  }
+}
