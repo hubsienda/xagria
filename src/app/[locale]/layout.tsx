@@ -31,8 +31,8 @@ export default async function LocaleLayout({
     <NextIntlClientProvider messages={messages}>
       <AgriProvider>
         <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 pb-28 sm:px-6 lg:px-8">
-          <nav className="flex items-center justify-between gap-3 py-5 sm:py-6">
-            <div className="flex items-center shrink-0">
+          <nav className="flex items-start justify-between gap-3 py-5 sm:items-center sm:py-6">
+            <div className="flex shrink-0 items-center">
               <img
                 src="/xagria-white-logo.png"
                 alt="XAGRIA"
@@ -40,7 +40,7 @@ export default async function LocaleLayout({
               />
             </div>
 
-            <div className="flex shrink-0 items-center gap-2 overflow-x-auto whitespace-nowrap">
+            <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
               <LocaleSwitcher />
               <UnitToggle />
             </div>
