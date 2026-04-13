@@ -1,0 +1,30 @@
+{
+  "Index": {
+    "title": "Herramientas XAGRIA",
+    "subtitle": "Precisión para el campo"
+  },
+  "Common": {
+    "calculate": "Calcular",
+    "copy": "Copiar",
+    "share": "Compartir",
+    "download": "Descargar TXT",
+    "units": "Unidades",
+    "metric": "Métrico",
+    "american": "Americano"
+  },
+  "TankMix": {
+    "name": "Mezcla de Tanque",
+    "desc": "Cálculo de caldo fitosanitario",
+    "labelTank": "Capacidad del Depósito",
+    "labelRate": "Volumen de Aplicación",
+    "labelConcentration": "Dosis de Producto",
+    "result": "Producto a añadir por depósito"
+  },
+  "HarvestLoss": {
+    "name": "Pérdida de Cosecha",
+    "desc": "Eficiencia de la cosechadora",
+    "labelSeeds": "Granos contados",
+    "labelArea": "Marco de muestreo",
+    "result": "Pérdida estimada"
+  }
+}
