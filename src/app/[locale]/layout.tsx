@@ -19,19 +19,22 @@ export default async function LocaleLayout({
       <body className="antialiased bg-background text-white min-h-screen">
         <NextIntlClientProvider messages={messages}>
           <AgriProvider>
+            {/* Navigation / Header */}
             <nav className="flex items-center justify-between p-6 max-w-4xl mx-auto">
               <img 
-                src="/xagria 1000x300 #ADFF2F wP.png" 
+                src="/xagria-white-logo.png" 
                 alt="XAGRIA" 
                 className="h-6 w-auto object-contain"
               />
               <UnitToggle />
             </nav>
             
+            {/* Main Content Area */}
             <main className="max-w-4xl mx-auto pb-32">
               {children}
             </main>
 
+            {/* Sticky Ad / Footer */}
             <footer className="fixed bottom-0 w-full bg-surface/80 backdrop-blur-md border-t border-white/5 p-4 print:hidden">
               <div className="max-w-4xl mx-auto flex items-center justify-center">
                 <div className="bg-background w-full max-w-sm h-12 rounded-xl flex items-center justify-center text-[10px] text-gray-600 font-bold tracking-widest border border-white/5 uppercase">
