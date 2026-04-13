@@ -3,15 +3,28 @@
     "title": "XAGRIA Tools",
     "subtitle": "Precision at your fingertips"
   },
+  "Common": {
+    "calculate": "Calculate",
+    "copy": "Copy",
+    "share": "Share",
+    "download": "Download TXT",
+    "units": "Units",
+    "metric": "Metric",
+    "american": "American"
+  },
   "TankMix": {
     "name": "Tank Mix",
     "desc": "Calculate product per tank",
     "labelTank": "Tank Capacity",
     "labelRate": "Application Rate",
-    "btn": "Calculate"
+    "labelConcentration": "Product Dose",
+    "result": "Amount to add per tank"
   },
   "HarvestLoss": {
     "name": "Harvest Loss",
-    "desc": "Check combine efficiency"
+    "desc": "Check combine efficiency",
+    "labelSeeds": "Seeds counted",
+    "labelArea": "Counting Area",
+    "result": "Estimated loss"
   }
 }
