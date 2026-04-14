@@ -128,7 +128,7 @@ export default async function IndexPage({
   return (
     <div className="px-2 pt-4 pb-6 sm:px-4 sm:pt-6">
       <div className="mb-8 sm:mb-10">
-        <p className="text-[10px] font-medium uppercase tracking-[0.25em] text-gray-400 sm:text-xs">
+        <p className="text-[10px] font-medium uppercase tracking-[0.25em] text-gray-300 sm:text-xs">
           {t('subtitle')}
         </p>
       </div>
@@ -149,10 +149,10 @@ export default async function IndexPage({
               <h3 className="text-base font-bold leading-tight text-white sm:text-lg">
                 {tool.title}
               </h3>
-              <p className="mt-1 text-sm text-gray-500">{tool.desc}</p>
+              <p className="mt-1 text-sm text-gray-300">{tool.desc}</p>
             </div>
 
-            <ChevronRight className="ml-3 shrink-0 text-gray-700 transition-all group-hover:translate-x-1 group-hover:text-brand" />
+            <ChevronRight className="ml-3 shrink-0 text-gray-500 transition-all group-hover:translate-x-1 group-hover:text-brand" />
           </Link>
         ))}
       </div>
