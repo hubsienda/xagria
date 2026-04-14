@@ -22,12 +22,15 @@ export default function RuggedInput({
   return (
     <div className="mb-5 px-1">
       <div className="mb-2 flex items-end justify-between gap-3">
-        <label className="text-[10px] font-black uppercase tracking-widest leading-none text-gray-500">
+        <label className="text-[11px] font-bold uppercase tracking-widest leading-none text-gray-300">
           {label}
         </label>
-        <span className="rounded-md px-2 py-1 text-[10px] font-black uppercase leading-none text-brand bg-brand/10">
-          {unit}
-        </span>
+
+        {unit ? (
+          <span className="rounded-md bg-background px-2 py-1 text-[10px] font-medium uppercase leading-none text-brand border border-brand/20">
+            {unit}
+          </span>
+        ) : null}
       </div>
 
       <input
@@ -41,7 +44,7 @@ export default function RuggedInput({
           onChange(raw === '' ? '' : Number(raw));
         }}
         placeholder="0.00"
-        className="w-full rounded-[1.5rem] border-2 border-white/5 bg-surface p-5 text-3xl font-bold text-white outline-none transition-all placeholder:text-gray-700 focus:border-brand"
+        className="w-full rounded-[1.5rem] border-2 border-white/5 bg-surface p-5 text-3xl font-bold text-white outline-none transition-all placeholder:text-gray-600 focus:border-brand"
       />
     </div>
   );
