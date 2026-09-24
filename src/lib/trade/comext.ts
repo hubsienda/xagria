@@ -4,6 +4,7 @@ import type {TradeDirection, TradeRecord} from './types';
 
 interface JsonStatDimension { category?: {index?: Record<string, number> | string[]; label?: Record<string, string>}; }
 interface JsonStatResponse { id?: string[]; size?: number[]; value?: number[] | Record<string, number>; dimension?: Record<string, JsonStatDimension>; error?: {status?: string | number; label?: string}; warning?: {status?: string | number; label?: string}; }
+type ValidJsonStatResponse = JsonStatResponse & {id: string[]; size: number[]; dimension: Record<string, JsonStatDimension>};
 
 export class ComextError extends Error {
   constructor(public userMessage: string, message?: string) { super(message ?? userMessage); this.name = 'ComextError'; }
@@ -29,7 +30,7 @@ function decodeIndex(flatIndex: number, sizes: number[]) {
   return positions;
 }
 
-async function fetchJsonStat(params: URLSearchParams): Promise<JsonStatResponse> {
+async function fetchJsonStat(params: URLSearchParams): Promise<ValidJsonStatResponse> {
   const url = `${COMEXT_BASE_URL}/${COMEXT_DATASET}?${params.toString()}`;
   let response: Response;
   try {
@@ -45,21 +46,21 @@ async function fetchJsonStat(params: URLSearchParams): Promise<JsonStatResponse>
   if (data.error) throw new ComextError('No trade data were returned for this product, market and period.', data.error.label);
   if (data.warning) throw new ComextError('Eurostat data are temporarily unavailable. Try again shortly.', data.warning.label);
   if (!data.id || !data.size || !data.dimension) throw new ComextError('Eurostat returned an unexpected response. Try again shortly.');
-  return data;
+  return data as ValidJsonStatResponse;
 }
 
 export async function fetchLatestAvailableMonth(reporter: string, productCodes: string[], direction: TradeDirection) {
   const params = new URLSearchParams({format: 'JSON', lang: 'EN', freq: 'M', reporter, flow: flowCode(direction), partner: 'WORLD', indicators: 'VALUE_IN_EUROS', lastTimePeriod: '18'});
   addFilters(params, 'product', productCodes);
   const data = await fetchJsonStat(params);
-  const times = categoryCodes(data.dimension.time ?? data.dimension.time_period);
+  const times = categoryCodes(data.dimension?.time ?? data.dimension?.time_period);
   const entries = valueEntries(data.value);
   if (!entries.length || !times.length) throw new ComextError('No trade data were returned for this product and market.');
-  const timeDimensionIndex = data.id!.findIndex(id => id === 'time' || id === 'time_period');
+  const timeDimensionIndex = data.id.findIndex(id => id === 'time' || id === 'time_period');
   if (timeDimensionIndex < 0) throw new ComextError('Eurostat returned an unexpected response. Try again shortly.');
   let latest = '';
   for (const [flatIndex] of entries) {
-    const position = decodeIndex(flatIndex, data.size!)[timeDimensionIndex];
+    const position = decodeIndex(flatIndex, data.size)[timeDimensionIndex];
     const time = times[position];
     if (time && time > latest) latest = time;
   }
@@ -72,7 +73,7 @@ export async function fetchTradeRecords(reporter: string, productCodes: string[]
   addFilters(params, 'product', productCodes);
   addFilters(params, 'indicators', ['VALUE_IN_EUROS', 'QUANTITY_IN_100KG']);
   const data = await fetchJsonStat(params);
-  const dimensions = data.id!;
+  const dimensions = data.id;
   const positionsByDimension = new Map(dimensions.map(id => [id, categoryCodes(data.dimension?.[id])]));
   const labelsByDimension = new Map(dimensions.map(id => [id, data.dimension?.[id]?.category?.label ?? {}]));
   const partnerDim = dimensions.indexOf('partner');
@@ -85,7 +86,7 @@ export async function fetchTradeRecords(reporter: string, productCodes: string[]
   const rows = new Map<string, Acc>();
   for (const [flatIndex, rawValue] of valueEntries(data.value)) {
     if (!Number.isFinite(rawValue)) continue;
-    const coordinates = decodeIndex(flatIndex, data.size!);
+    const coordinates = decodeIndex(flatIndex, data.size);
     const partnerCode = positionsByDimension.get('partner')?.[coordinates[partnerDim]];
     const timeId = dimensions[timeDim];
     const time = positionsByDimension.get(timeId)?.[coordinates[timeDim]];
