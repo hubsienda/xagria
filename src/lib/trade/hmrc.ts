@@ -7,6 +7,7 @@ export const HMRC_DATASET = 'OTS';
 export const HMRC_DATASET_LABEL = 'UK Overseas Trade Statistics';
 const REVALIDATE_SECONDS = 6 * 60 * 60;
 const TIMEOUT_MS = 20_000;
+const MAX_PAGES = 100;
 
 interface ODataResponse<T> {
   value?: T[];
@@ -63,8 +64,7 @@ function monthString(value: number) {
   return `${raw.slice(0, 4)}-${raw.slice(4)}`;
 }
 
-async function fetchOData<T>(path: string, params: URLSearchParams): Promise<ODataResponse<T>> {
-  const url = `${HMRC_BASE_URL}/${path}?${params.toString()}`;
+async function fetchPage<T>(url: string): Promise<ODataResponse<T>> {
   let response: Response;
   try {
     response = await fetch(url, {
@@ -82,6 +82,27 @@ async function fetchOData<T>(path: string, params: URLSearchParams): Promise<ODa
   const data = await response.json() as ODataResponse<T>;
   if (!Array.isArray(data.value)) throw new HmrcError('UK Trade Info returned an unexpected response. Try again shortly.');
   return data;
+}
+
+async function fetchOData<T>(path: string, params: URLSearchParams): Promise<ODataResponse<T>> {
+  let nextUrl: string | undefined = `${HMRC_BASE_URL}/${path}?${params.toString()}`;
+  const values: T[] = [];
+  let pageCount = 0;
+  while (nextUrl) {
+    pageCount += 1;
+    if (pageCount > MAX_PAGES) throw new HmrcError('UK Trade Info returned an unexpectedly large response. Try a narrower query.');
+    const page = await fetchPage<T>(nextUrl);
+    values.push(...(page.value ?? []));
+    const continuation = page['@odata.nextLink'];
+    if (!continuation) {
+      nextUrl = undefined;
+    } else {
+      const resolved = new URL(continuation, HMRC_BASE_URL);
+      if (resolved.origin !== new URL(HMRC_BASE_URL).origin) throw new HmrcError('UK Trade Info returned an unexpected response. Try again shortly.');
+      nextUrl = resolved.toString();
+    }
+  }
+  return {value: values};
 }
 
 async function fetchCountryMap() {
