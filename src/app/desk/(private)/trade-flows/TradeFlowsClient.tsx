@@ -6,13 +6,12 @@ import type {ComparisonBlock, ReporterMarket, TradeAnalysis, TradeProduct} from 
 type Props = {products: TradeProduct[]; reporters: ReporterMarket[]};
 
 const number = new Intl.NumberFormat('en-GB', {maximumFractionDigits: 0});
-const money = new Intl.NumberFormat('en-GB', {style: 'currency', currency: 'EUR', maximumFractionDigits: 0});
 const decimal = new Intl.NumberFormat('en-GB', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 const pct = new Intl.NumberFormat('en-GB', {minimumFractionDigits: 1, maximumFractionDigits: 1, signDisplay: 'exceptZero'});
 
 const formatTonnes = (kg: number) => `${number.format(kg / 1000)} t`;
-const formatMoney = (value: number) => money.format(value);
-const formatUnit = (value: number | null) => value == null || !Number.isFinite(value) ? '—' : `€${decimal.format(value)}/kg`;
+const formatMoney = (value: number, currencyCode: 'EUR' | 'GBP') => new Intl.NumberFormat('en-GB', {style: 'currency', currency: currencyCode, maximumFractionDigits: 0}).format(value);
+const formatUnit = (value: number | null, symbol: '€' | '£') => value == null || !Number.isFinite(value) ? '—' : `${symbol}${decimal.format(value)}/kg`;
 const formatPct = (value: number | null) => value == null || !Number.isFinite(value) ? 'Insufficient comparable data' : `${pct.format(value)}%`;
 const formatMonth = (month: string) => {
   const [year, rawMonth] = month.split('-').map(Number);
@@ -85,34 +84,34 @@ export default function TradeFlowsClient({products, reporters}: Props) {
           </select>
         </label>
       </div>
-      <button disabled={loading} className="mt-6 rounded-lg bg-brand px-5 py-3 font-bold text-black disabled:cursor-wait disabled:opacity-60">{loading ? 'Analysing Eurostat data…' : 'Run analysis'}</button>
+      <button disabled={loading} className="mt-6 rounded-lg bg-brand px-5 py-3 font-bold text-black disabled:cursor-wait disabled:opacity-60">{loading ? 'Analysing official trade data…' : 'Run analysis'}</button>
       {error && <p role="alert" className="mt-4 rounded-lg border border-red-400/30 bg-red-950/30 p-4 text-sm text-red-100">{error}</p>}
     </form>
 
     {analysis && <>
       <section>
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <div><h2 className="text-2xl font-bold">{analysis.product.name} · {analysis.reporter.name}</h2><p className="mt-2 text-sm text-muted">{analysis.direction === 'imports' ? 'Imports' : 'Exports'} · Last {analysis.periodMonths} months · CN/HS code group {analysis.product.codeLabel}</p></div>
+          <div><h2 className="text-2xl font-bold">{analysis.product.name} · {analysis.reporter.name}</h2><p className="mt-2 text-sm text-muted">{analysis.direction === 'imports' ? 'Imports' : 'Exports'} · Last {analysis.periodMonths} months · Commodity code group {analysis.source.codeLabel}</p>{analysis.source.productNote && <p className="mt-2 max-w-3xl text-xs text-muted">{analysis.source.productNote}</p>}</div>
           <p className="text-sm font-semibold text-brand">Data through: {formatMonth(analysis.latestMonth)}</p>
         </div>
         <div className="mt-5 grid gap-4 sm:grid-cols-3">
           <div className="rounded-xl border border-white/10 bg-surface p-5"><p className="text-xs uppercase tracking-wide text-muted">Total quantity</p><p className="mt-2 text-2xl font-bold">{formatTonnes(analysis.summary.quantityKg)}</p></div>
-          <div className="rounded-xl border border-white/10 bg-surface p-5"><p className="text-xs uppercase tracking-wide text-muted">Total trade value</p><p className="mt-2 text-2xl font-bold">{formatMoney(analysis.summary.tradeValueEur)}</p></div>
-          <div className="rounded-xl border border-white/10 bg-surface p-5"><p className="text-xs uppercase tracking-wide text-muted">Trade unit value</p><p className="mt-2 text-2xl font-bold">{formatUnit(analysis.summary.unitValueEurKg)}</p></div>
+          <div className="rounded-xl border border-white/10 bg-surface p-5"><p className="text-xs uppercase tracking-wide text-muted">Total trade value</p><p className="mt-2 text-2xl font-bold">{formatMoney(analysis.summary.tradeValue, analysis.source.currencyCode)}</p></div>
+          <div className="rounded-xl border border-white/10 bg-surface p-5"><p className="text-xs uppercase tracking-wide text-muted">Trade unit value</p><p className="mt-2 text-2xl font-bold">{formatUnit(analysis.summary.unitValue, analysis.source.currencySymbol)}</p></div>
         </div>
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2"><ComparisonPanel title="Latest month vs same month previous year" data={analysis.latestMonthComparison} /><ComparisonPanel title="Latest 12 months vs previous 12 months" data={analysis.rolling12Comparison} /></div>
 
       <section className="rounded-xl border border-white/10 bg-surface p-5 sm:p-6">
-        <h2 className="text-xl font-bold">{analysis.direction === 'imports' ? 'Supplier origins' : 'Destination markets'}</h2><p className="mt-2 text-sm text-muted">Ranked by quantity over the selected period. Aggregate and special partner codes are excluded.</p>
+        <h2 className="text-xl font-bold">{analysis.direction === 'imports' ? 'Supplier origins' : 'Destination markets'}</h2><p className="mt-2 text-sm text-muted">Ranked by quantity over the selected period. Aggregate, unknown and special partner codes are excluded.</p>
         <div className="mt-5 overflow-x-auto"><table className="w-full min-w-[850px] text-left text-sm"><thead className="border-b border-white/10 text-xs uppercase tracking-wide text-muted"><tr><th className="py-3 pr-4">Rank</th><th className="py-3 pr-4">{analysis.direction === 'imports' ? 'Origin' : 'Destination'}</th><th className="py-3 pr-4">Quantity</th><th className="py-3 pr-4">Trade value</th><th className="py-3 pr-4">Trade unit value</th><th className="py-3 pr-4">Share</th><th className="py-3">Latest 12m change</th></tr></thead>
-        <tbody>{analysis.suppliers.map(row => <tr key={row.originCode} className="border-b border-white/5"><td className="py-3 pr-4">{row.rank}</td><td className="py-3 pr-4 font-semibold">{row.origin}</td><td className="py-3 pr-4">{formatTonnes(row.quantityKg)}</td><td className="py-3 pr-4">{formatMoney(row.tradeValueEur)}</td><td className="py-3 pr-4">{formatUnit(row.unitValueEurKg)}</td><td className="py-3 pr-4">{row.marketSharePct == null ? '—' : `${row.marketSharePct.toFixed(1)}%`}</td><td className="py-3">{formatPct(row.changePct)}</td></tr>)}</tbody></table></div>
+        <tbody>{analysis.suppliers.map(row => <tr key={row.originCode} className="border-b border-white/5"><td className="py-3 pr-4">{row.rank}</td><td className="py-3 pr-4 font-semibold">{row.origin}</td><td className="py-3 pr-4">{formatTonnes(row.quantityKg)}</td><td className="py-3 pr-4">{formatMoney(row.tradeValue, analysis.source.currencyCode)}</td><td className="py-3 pr-4">{formatUnit(row.unitValue, analysis.source.currencySymbol)}</td><td className="py-3 pr-4">{row.marketSharePct == null ? '—' : `${row.marketSharePct.toFixed(1)}%`}</td><td className="py-3">{formatPct(row.changePct)}</td></tr>)}</tbody></table></div>
       </section>
 
       <section className="rounded-xl border border-white/10 bg-surface p-5 sm:p-6">
         <h2 className="text-xl font-bold">Monthly trend</h2>
-        <div className="mt-5 overflow-x-auto"><table className="w-full min-w-[650px] text-left text-sm"><thead className="border-b border-white/10 text-xs uppercase tracking-wide text-muted"><tr><th className="py-3 pr-4">Month</th><th className="py-3 pr-4">Quantity</th><th className="py-3 pr-4">Trade value</th><th className="py-3">Trade unit value</th></tr></thead><tbody>{analysis.monthlyTrend.map(row => <tr key={row.month} className="border-b border-white/5"><td className="py-3 pr-4">{formatMonth(row.month)}</td><td className="py-3 pr-4">{formatTonnes(row.quantityKg)}</td><td className="py-3 pr-4">{formatMoney(row.tradeValueEur)}</td><td className="py-3">{formatUnit(row.unitValueEurKg)}</td></tr>)}</tbody></table></div>
+        <div className="mt-5 overflow-x-auto"><table className="w-full min-w-[650px] text-left text-sm"><thead className="border-b border-white/10 text-xs uppercase tracking-wide text-muted"><tr><th className="py-3 pr-4">Month</th><th className="py-3 pr-4">Quantity</th><th className="py-3 pr-4">Trade value</th><th className="py-3">Trade unit value</th></tr></thead><tbody>{analysis.monthlyTrend.map(row => <tr key={row.month} className="border-b border-white/5"><td className="py-3 pr-4">{formatMonth(row.month)}</td><td className="py-3 pr-4">{formatTonnes(row.quantityKg)}</td><td className="py-3 pr-4">{formatMoney(row.tradeValue, analysis.source.currencyCode)}</td><td className="py-3">{formatUnit(row.unitValue, analysis.source.currencySymbol)}</td></tr>)}</tbody></table></div>
       </section>
 
       <section className="rounded-xl border border-white/10 bg-surface p-5 sm:p-6">
@@ -124,9 +123,9 @@ export default function TradeFlowsClient({products, reporters}: Props) {
         <div className="mt-6 border-t border-white/10 pt-5"><h3 className="font-bold">Worth investigating</h3><p className="mt-2 text-sm text-muted">{analysis.worthInvestigating}</p></div>
       </section>
 
-      <section className="rounded-xl border border-white/10 p-5 text-sm text-muted sm:p-6"><h2 className="font-bold text-white">Source and methodology</h2><dl className="mt-4 grid gap-2 sm:grid-cols-2"><div><dt className="font-semibold text-white">Source</dt><dd>Eurostat Comext — International trade in goods</dd></div><div><dt className="font-semibold text-white">Dataset</dt><dd>{analysis.dataset} · {analysis.datasetLabel}</dd></div><div><dt className="font-semibold text-white">Reporter / flow</dt><dd>{analysis.reporter.name} · {analysis.direction}</dd></div><div><dt className="font-semibold text-white">Product codes</dt><dd>{analysis.product.codeLabel}</dd></div></dl>
-        <p className="mt-4"><a href={analysis.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-brand underline underline-offset-4">Official Eurostat Comext API documentation</a></p>
-        <details className="mt-5 border-t border-white/10 pt-4"><summary className="cursor-pointer font-semibold text-white">Methodology note</summary><div className="mt-3 space-y-2"><p>Trade value is Eurostat’s international-trade statistical value. Quantity is derived from Comext net-mass quantity reported in 100 kg and converted to kilograms.</p><p>Trade unit value is calculated as trade value divided by net mass. It is an analytical unit value, not a wholesale, producer, retail or transaction market price.</p><p>Recent months may be revised. Missing or confidential trade can affect detailed totals, and Combined Nomenclature classifications can change between years.</p><p>Partner rankings and market shares use only displayed individual-country partner flows; World, EU and other aggregate or special partner codes are excluded to prevent double counting.</p></div></details>
+      <section className="rounded-xl border border-white/10 p-5 text-sm text-muted sm:p-6"><h2 className="font-bold text-white">Source and methodology</h2><dl className="mt-4 grid gap-2 sm:grid-cols-2"><div><dt className="font-semibold text-white">Source</dt><dd>{analysis.source.sourceName}</dd></div><div><dt className="font-semibold text-white">Dataset / API</dt><dd>{analysis.source.dataset} · {analysis.source.datasetLabel}</dd></div><div><dt className="font-semibold text-white">Reporter / flow</dt><dd>{analysis.reporter.name} · {analysis.direction}</dd></div><div><dt className="font-semibold text-white">Product codes</dt><dd>{analysis.source.codeLabel}</dd></div><div><dt className="font-semibold text-white">Latest data month</dt><dd>{formatMonth(analysis.latestMonth)}</dd></div><div><dt className="font-semibold text-white">Currency</dt><dd>{analysis.source.currencyCode} ({analysis.source.currencySymbol})</dd></div></dl>
+        <p className="mt-4"><a href={analysis.source.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-brand underline underline-offset-4">Official source documentation</a></p>
+        <details className="mt-5 border-t border-white/10 pt-4"><summary className="cursor-pointer font-semibold text-white">Methodology note</summary><div className="mt-3 space-y-2">{analysis.source.methodology.map((line, index) => <p key={index}>{line}</p>)}</div></details>
       </section>
     </>}
   </div>;
