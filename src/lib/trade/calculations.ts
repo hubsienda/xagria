@@ -19,9 +19,9 @@ export const SIGNAL_THRESHOLDS = {
   emergingCurrentSharePct: 3,
 } as const;
 
-export function tradeUnitValue(tradeValueEur: number | null | undefined, quantityKg: number | null | undefined) {
-  if (!Number.isFinite(tradeValueEur) || !Number.isFinite(quantityKg) || !quantityKg || quantityKg <= 0) return null;
-  return (tradeValueEur as number) / quantityKg;
+export function tradeUnitValue(tradeValue: number | null | undefined, quantityKg: number | null | undefined) {
+  if (!Number.isFinite(tradeValue) || !Number.isFinite(quantityKg) || !quantityKg || quantityKg <= 0) return null;
+  return (tradeValue as number) / quantityKg;
 }
 
 export function percentageChange(current: number | null | undefined, previous: number | null | undefined) {
@@ -34,8 +34,6 @@ export function marketShare(quantity: number | null | undefined, totalQuantity: 
   return ((quantity as number) / totalQuantity) * 100;
 }
 
-// Supplier rankings only contain ISO-like individual country partners. This deliberately
-// excludes WORLD, EU/EA aggregates and Q* special/confidential partner codes.
 export function isCountryPartner(code: string) {
   const normalised = code.toUpperCase();
   return /^[A-Z]{2}$/.test(normalised) && !normalised.startsWith('Q') && normalised !== 'EU' && normalised !== 'EA';
@@ -43,7 +41,7 @@ export function isCountryPartner(code: string) {
 
 export function aggregateRecords(records: TradeRecord[]): TradeAggregate {
   let quantityKg = 0;
-  let tradeValueEur = 0;
+  let tradeValue = 0;
   let hasQuantity = false;
   let hasValue = false;
   for (const record of records) {
@@ -51,19 +49,19 @@ export function aggregateRecords(records: TradeRecord[]): TradeAggregate {
       quantityKg += record.quantityKg;
       hasQuantity = true;
     }
-    if (record.tradeValueEur != null && Number.isFinite(record.tradeValueEur)) {
-      tradeValueEur += record.tradeValueEur;
+    if (record.tradeValue != null && Number.isFinite(record.tradeValue)) {
+      tradeValue += record.tradeValue;
       hasValue = true;
     }
   }
   const unitValueComplete = records.length > 0 && records.every(record =>
     record.quantityKg != null && Number.isFinite(record.quantityKg) &&
-    record.tradeValueEur != null && Number.isFinite(record.tradeValueEur),
+    record.tradeValue != null && Number.isFinite(record.tradeValue),
   );
   return {
     quantityKg: hasQuantity ? quantityKg : 0,
-    tradeValueEur: hasValue ? tradeValueEur : 0,
-    unitValueEurKg: unitValueComplete ? tradeUnitValue(tradeValueEur, quantityKg) : null,
+    tradeValue: hasValue ? tradeValue : 0,
+    unitValuePerKg: unitValueComplete ? tradeUnitValue(tradeValue, quantityKg) : null,
   };
 }
 
@@ -93,8 +91,8 @@ function metric(current: number | null, previous: number | null): ComparisonMetr
 export function comparison(current: TradeAggregate, previous: TradeAggregate): ComparisonBlock {
   return {
     quantity: metric(current.quantityKg, previous.quantityKg),
-    tradeValue: metric(current.tradeValueEur, previous.tradeValueEur),
-    unitValue: metric(current.unitValueEurKg, previous.unitValueEurKg),
+    tradeValue: metric(current.tradeValue, previous.tradeValue),
+    unitValue: metric(current.unitValuePerKg, previous.unitValuePerKg),
   };
 }
 
@@ -105,8 +103,8 @@ export function buildMonthComparison(records: TradeRecord[], latestMonth: string
   if (!hasEveryMonth(records, currentMonths) || !hasEveryMonth(records, previousMonths)) return null;
   const current = aggregateForMonths(records, currentMonths);
   const previous = aggregateForMonths(records, previousMonths);
-  if (current.quantityKg === 0 && current.tradeValueEur === 0) return null;
-  if (previous.quantityKg === 0 && previous.tradeValueEur === 0) return null;
+  if (current.quantityKg === 0 && current.tradeValue === 0) return null;
+  if (previous.quantityKg === 0 && previous.tradeValue === 0) return null;
   return comparison(current, previous);
 }
 
@@ -116,8 +114,8 @@ export function buildRolling12Comparison(records: TradeRecord[], latestMonth: st
   if (!hasEveryMonth(records, latestMonths) || !hasEveryMonth(records, previousMonths)) return null;
   const current = aggregateForMonths(records, latestMonths);
   const previous = aggregateForMonths(records, previousMonths);
-  if (current.quantityKg === 0 && current.tradeValueEur === 0) return null;
-  if (previous.quantityKg === 0 && previous.tradeValueEur === 0) return null;
+  if (current.quantityKg === 0 && current.tradeValue === 0) return null;
+  if (previous.quantityKg === 0 && previous.tradeValue === 0) return null;
   return comparison(current, previous);
 }
 
@@ -149,8 +147,8 @@ export function buildSuppliers(records: TradeRecord[], latestMonth: string, peri
       marketSharePct: marketShare(selected.quantityKg, total),
       changePct: percentageChange(current.quantityKg, previous.quantityKg),
     };
-  }).filter(row => row.quantityKg > 0 || row.tradeValueEur > 0)
-    .sort((a, b) => b.quantityKg - a.quantityKg || b.tradeValueEur - a.tradeValueEur);
+  }).filter(row => row.quantityKg > 0 || row.tradeValue > 0)
+    .sort((a, b) => b.quantityKg - a.quantityKg || b.tradeValue - a.tradeValue);
   return rows.map((row, index) => ({...row, rank: index + 1}));
 }
 
