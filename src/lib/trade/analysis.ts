@@ -18,6 +18,7 @@ export async function analyseTradeFlows(input: {productId: string; reporterCode:
   const providerResult = await fetchProviderTradeData(
     reporter,
     product,
+    input.direction,
     latestMonth => previousMonth(latestMonth, historyMonths - 1),
   );
   const countryRecords = providerResult.records.filter(record => isCountryPartner(record.partnerCode));
