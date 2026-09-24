@@ -83,7 +83,7 @@ function aggregateForMonths(records: TradeRecord[], months: Set<string>) {
 
 function hasEveryMonth(records: TradeRecord[], months: Set<string>) {
   const available = new Set(records.map(record => record.time));
-  return [...months].every(month => available.has(month));
+  return Array.from(months).every(month => available.has(month));
 }
 
 function metric(current: number | null, previous: number | null): ComparisonMetric {
@@ -137,7 +137,7 @@ export function buildSuppliers(records: TradeRecord[], latestMonth: string, peri
     byPartner.set(record.partnerCode, rows);
   }
   const total = aggregateForMonths(records.filter(record => isCountryPartner(record.partnerCode)), displayMonths).quantityKg;
-  const rows = [...byPartner.entries()].map(([code, partnerRecords]) => {
+  const rows = Array.from(byPartner.entries()).map(([code, partnerRecords]) => {
     const selected = aggregateForMonths(partnerRecords, displayMonths);
     const current = aggregateForMonths(partnerRecords, latest12);
     const previous = aggregateForMonths(partnerRecords, previous12);
@@ -166,7 +166,7 @@ export function buildOriginEvolution(records: TradeRecord[], latestMonth: string
     rows.push(record);
     byPartner.set(record.partnerCode, rows);
   }
-  return [...byPartner.entries()].map(([code, partnerRecords]) => {
+  return Array.from(byPartner.entries()).map(([code, partnerRecords]) => {
     const current = aggregateForMonths(partnerRecords, latest12);
     const previous = aggregateForMonths(partnerRecords, previous12);
     const currentSharePct = marketShare(current.quantityKg, currentTotal);
