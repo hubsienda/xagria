@@ -28,6 +28,38 @@ assert.throws(() => createSession());
 process.env.XAGRIA_SESSION_SECRET = secret;
 console.log('PASS: session signing, expiry, tampering, credential rotation and invalid configuration');
 
+const originalError = console.error;
+const diagnostics = [];
+console.error = (...args) => diagnostics.push(args.join(' '));
+try {
+  const cases = [
+    ['', secret, 'PASSPHRASE_MISSING_OR_EMPTY'],
+    ['short', secret, 'PASSPHRASE_BELOW_MINIMUM'],
+    ['x'.repeat(1025), secret, 'PASSPHRASE_ABOVE_MAXIMUM'],
+    [passphrase, '', 'SESSION_SECRET_MISSING_OR_EMPTY'],
+    [passphrase, 'short', 'SESSION_SECRET_BELOW_MINIMUM'],
+    [passphrase, 'x'.repeat(4097), 'SESSION_SECRET_ABOVE_MAXIMUM'],
+    [passphrase, passphrase, 'CREDENTIALS_IDENTICAL']
+  ];
+  for (const [p, s, code] of cases) {
+    process.env.XAGRIA_DESK_PASSPHRASE = p;
+    process.env.XAGRIA_SESSION_SECRET = s;
+    assert.equal(getConfig(), null);
+    assert.equal(diagnostics.at(-1), '[XAGRIA_DESK_CONFIG_INVALID] ' + code);
+    const count = diagnostics.length;
+    assert.equal(getConfig(), null);
+    assert.equal(diagnostics.length, count);
+  }
+} finally {
+  console.error = originalError;
+  process.env.XAGRIA_DESK_PASSPHRASE = passphrase;
+  process.env.XAGRIA_SESSION_SECRET = secret;
+}
+assert(getConfig());
+assert(diagnostics.every(line => !line.includes(passphrase) && !line.includes(secret)));
+console.log('PASS: all configuration failure codes, log deduplication and no credential disclosure');
+
+
 const port = 3198;
 const origin = `http://localhost:${port}`;
 async function withServer(env, run) {
