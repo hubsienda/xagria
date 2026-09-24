@@ -2,10 +2,12 @@ import Link from 'next/link';
 import TradeFlowsClient from './TradeFlowsClient';
 import {TRADE_PRODUCTS} from '@/lib/trade/products';
 import {REPORTER_MARKETS} from '@/lib/trade/reporters';
+import {requireDeskSession} from '@/lib/desk/auth';
 
 export const metadata = {title: 'Trade Flows · XAGRIA'};
 
-export default function TradeFlowsPage() {
+export default async function TradeFlowsPage() {
+  await requireDeskSession();
   return <>
     <div className="flex flex-wrap items-start justify-between gap-5">
       <div>
