@@ -20,95 +20,24 @@ jobs:
       - run: npm run test:trade
       - name: Live Eurostat and HMRC verification
         run: |
-          python3 - <<'PY'
-          import json, re, urllib.parse, urllib.request
+          node --conditions=react-server --experimental-strip-types --input-type=module <<'NODE'
+          import {fetchLatestAvailableMonth, fetchTradeRecords} from './src/lib/trade/comext.ts';
+          import {fetchHmrcLatestAvailableMonth, fetchHmrcTradeRecords} from './src/lib/trade/hmrc.ts';
+          import {isCountryPartner} from './src/lib/trade/calculations.ts';
 
-          def get_json(base, params=None):
-              url = base if params is None else base + '?' + urllib.parse.urlencode(params, doseq=True)
-              with urllib.request.urlopen(url, timeout=30) as response:
-                  return json.load(response)
+          const euroLatest = await fetchLatestAvailableMonth('DE', ['080550'], 'imports');
+          const euroRecords = (await fetchTradeRecords('DE', ['080550'], 'imports', euroLatest, euroLatest))
+            .filter(record => isCountryPartner(record.partnerCode) && record.tradeValue != null && record.quantityKg != null && record.quantityKg > 0);
+          if (!euroRecords.length) throw new Error('Eurostat live verification returned no complete country rows');
+          const euroTop = euroRecords.slice().sort((a, b) => (b.quantityKg ?? 0) - (a.quantityKg ?? 0))[0];
+          const euroUnit = euroTop.tradeValue / euroTop.quantityKg;
+          console.log(`EU LIVE OK | lemons/limes | Germany imports | through ${euroLatest} | origins ${new Set(euroRecords.map(row => row.partnerCode)).size} | leading ${euroTop.partnerName} | EUR ${euroTop.tradeValue.toFixed(0)} | kg ${euroTop.quantityKg.toFixed(0)} | EUR/kg ${euroUnit.toFixed(4)}`);
 
-          def codes(dimension):
-              index = dimension.get('category', {}).get('index', {})
-              if isinstance(index, list):
-                  return index
-              return [code for code, _ in sorted(index.items(), key=lambda item: item[1])]
-
-          def entries(value):
-              if isinstance(value, list):
-                  return [(i, v) for i, v in enumerate(value) if v is not None]
-              return [(int(i), v) for i, v in value.items()]
-
-          def coords(flat, sizes):
-              out = [0] * len(sizes)
-              for i in range(len(sizes) - 1, -1, -1):
-                  out[i] = flat % sizes[i]
-                  flat //= sizes[i]
-              return out
-
-          euro_base = 'https://ec.europa.eu/eurostat/api/comext/dissemination/statistics/1.0/data/DS-045409'
-          latest = get_json(euro_base, {
-              'format': 'JSON', 'lang': 'EN', 'freq': 'M', 'reporter': 'DE', 'flow': '1',
-              'partner': 'WORLD', 'product': '080550', 'indicators': 'VALUE_IN_EUROS', 'lastTimePeriod': '18'
-          })
-          time_id = 'time' if 'time' in latest['id'] else 'time_period'
-          time_pos = latest['id'].index(time_id)
-          time_codes = codes(latest['dimension'][time_id])
-          latest_month = ''
-          for flat, _ in entries(latest.get('value', [])):
-              c = coords(flat, latest['size'])
-              latest_month = max(latest_month, time_codes[c[time_pos]])
-          assert latest_month, 'Eurostat latest month missing'
-
-          eu = get_json(euro_base, {
-              'format': 'JSON', 'lang': 'EN', 'freq': 'M', 'reporter': 'DE', 'flow': '1',
-              'product': '080550', 'indicators': ['VALUE_IN_EUROS', 'QUANTITY_IN_100KG'],
-              'sinceTimePeriod': latest_month, 'untilTimePeriod': latest_month
-          })
-          partner_pos = eu['id'].index('partner')
-          indicator_pos = eu['id'].index('indicators')
-          partner_codes = codes(eu['dimension']['partner'])
-          indicator_codes = codes(eu['dimension']['indicators'])
-          partner_labels = eu['dimension']['partner'].get('category', {}).get('label', {})
-          accum = {}
-          for flat, raw in entries(eu.get('value', [])):
-              c = coords(flat, eu['size'])
-              partner = partner_codes[c[partner_pos]]
-              indicator = indicator_codes[c[indicator_pos]]
-              if not re.fullmatch(r'[A-Z]{2}', partner) or partner in {'EU', 'EA'} or partner.startswith('Q'):
-                  continue
-              row = accum.setdefault(partner, {'value': 0.0, 'kg': 0.0})
-              if indicator == 'VALUE_IN_EUROS': row['value'] += raw
-              if indicator == 'QUANTITY_IN_100KG': row['kg'] += raw * 100
-          eu_rows = [(code, row) for code, row in accum.items() if row['value'] > 0 and row['kg'] > 0]
-          assert eu_rows, 'Eurostat partner/value/quantity rows missing'
-          eu_code, eu_top = max(eu_rows, key=lambda item: item[1]['kg'])
-          eu_unit = eu_top['value'] / eu_top['kg']
-          print(f"EU LIVE OK | lemons/limes | Germany imports | through {latest_month} | origins {len(eu_rows)} | leading {partner_labels.get(eu_code, eu_code)} | EUR {eu_top['value']:.0f} | kg {eu_top['kg']:.0f} | EUR/kg {eu_unit:.4f}")
-
-          hmrc_base = 'https://api.uktradeinfo.com/OTS'
-          hmrc_latest = get_json(hmrc_base, {
-              '$filter': "Commodity/Cn8Code eq '08061010' and (FlowTypeId eq 1 or FlowTypeId eq 3)",
-              '$orderby': 'MonthId desc', '$top': '1', '$select': 'MonthId'
-          })
-          month_id = hmrc_latest['value'][0]['MonthId']
-          assert month_id, 'HMRC latest month missing'
-          hmrc = get_json(hmrc_base, {
-              '$apply': "filter(Commodity/Cn8Code eq '08061010' and (FlowTypeId eq 1 or FlowTypeId eq 3) and MonthId eq %s)/groupby((CountryId,SuppressionIndex),aggregate(Value with sum as TradeValue,NetMass with sum as QuantityKg))" % month_id
-          })
-          countries_data = get_json('https://api.uktradeinfo.com/Country', {'$select': 'CountryId,CountryName,CountryCodeAlpha'})
-          countries = {r['CountryId']: r for r in countries_data.get('value', []) if r.get('CountryCodeAlpha') and re.fullmatch(r'[A-Z]{2}', r['CountryCodeAlpha'].upper())}
-          uk_rows = []
-          for row in hmrc.get('value', []):
-              country = countries.get(row.get('CountryId'))
-              if not country: continue
-              if row.get('SuppressionIndex') in {3, 4, 5}: continue
-              value = row.get('TradeValue')
-              kg = row.get('QuantityKg')
-              if value and kg and kg > 0:
-                  uk_rows.append((country, value, kg))
-          assert uk_rows, 'HMRC partner/value/quantity rows missing'
-          uk_country, uk_value, uk_kg = max(uk_rows, key=lambda item: item[2])
-          uk_unit = uk_value / uk_kg
-          print(f"UK LIVE OK | table grapes | UK imports | through {str(month_id)[:4]}-{str(month_id)[4:]} | origins {len(uk_rows)} | leading {uk_country['CountryName']} | GBP {uk_value:.0f} | kg {uk_kg:.0f} | GBP/kg {uk_unit:.4f}")
-          PY
+          const ukLatest = await fetchHmrcLatestAvailableMonth(['08061010'], 'imports');
+          const ukRecords = (await fetchHmrcTradeRecords(['08061010'], 'imports', ukLatest, ukLatest))
+            .filter(record => isCountryPartner(record.partnerCode) && record.tradeValue != null && record.quantityKg != null && record.quantityKg > 0);
+          if (!ukRecords.length) throw new Error('HMRC live verification returned no complete country rows');
+          const ukTop = ukRecords.slice().sort((a, b) => (b.quantityKg ?? 0) - (a.quantityKg ?? 0))[0];
+          const ukUnit = ukTop.tradeValue / ukTop.quantityKg;
+          console.log(`UK LIVE OK | table grapes | UK imports | through ${ukLatest} | origins ${new Set(ukRecords.map(row => row.partnerCode)).size} | leading ${ukTop.partnerName} | GBP ${ukTop.tradeValue.toFixed(0)} | kg ${ukTop.quantityKg.toFixed(0)} | GBP/kg ${ukUnit.toFixed(4)}`);
+          NODE
