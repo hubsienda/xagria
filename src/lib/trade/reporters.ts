@@ -9,10 +9,12 @@ const EU_REPORTERS: Array<[string, string]> = [
   ['ES', 'Spain'], ['SE', 'Sweden'],
 ];
 
-export const REPORTER_MARKETS: ReporterMarket[] = [
+const REPORTERS: ReporterMarket[] = [
   ...EU_REPORTERS.map(([code, name]) => ({code, name, provider: 'eurostat' as const})),
-  {code: 'GB', name: 'United Kingdom', provider: 'hmrc'},
-].sort((a, b) => a.name.localeCompare(b.name, 'en-GB'));
+  {code: 'GB', name: 'United Kingdom', provider: 'hmrc' as const},
+];
+
+export const REPORTER_MARKETS = REPORTERS.slice().sort((a, b) => a.name.localeCompare(b.name, 'en-GB'));
 
 export function getReporterMarket(code: string) {
   return REPORTER_MARKETS.find(market => market.code === code) ?? null;
