@@ -56,10 +56,14 @@ export function aggregateRecords(records: TradeRecord[]): TradeAggregate {
       hasValue = true;
     }
   }
+  const unitValueComplete = records.length > 0 && records.every(record =>
+    record.quantityKg != null && Number.isFinite(record.quantityKg) &&
+    record.tradeValueEur != null && Number.isFinite(record.tradeValueEur),
+  );
   return {
     quantityKg: hasQuantity ? quantityKg : 0,
     tradeValueEur: hasValue ? tradeValueEur : 0,
-    unitValueEurKg: hasQuantity && hasValue ? tradeUnitValue(tradeValueEur, quantityKg) : null,
+    unitValueEurKg: unitValueComplete ? tradeUnitValue(tradeValueEur, quantityKg) : null,
   };
 }
 
