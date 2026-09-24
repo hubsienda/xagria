@@ -88,12 +88,15 @@ export async function fetchTradeRecords(reporter: string, productCodes: string[]
     if (!Number.isFinite(rawValue)) continue;
     const coordinates = decodeIndex(flatIndex, data.size);
     const partnerCode = positionsByDimension.get('partner')?.[coordinates[partnerDim]];
+    const productCode = positionsByDimension.get('product')?.[coordinates[productDim]];
     const timeId = dimensions[timeDim];
     const time = positionsByDimension.get(timeId)?.[coordinates[timeDim]];
     const indicator = positionsByDimension.get('indicators')?.[coordinates[indicatorDim]];
-    if (!partnerCode || !time || !indicator) continue;
+    if (!partnerCode || !productCode || !time || !indicator) continue;
     const label = labelsByDimension.get('partner')?.[partnerCode] ?? partnerCode;
-    const key = `${partnerCode}|${time}`;
+    // Keep product cells separate so missing/confidential quantity or value in one code
+    // cannot be hidden by a complete cell from another code in the selected code group.
+    const key = `${partnerCode}|${time}|${productCode}`;
     const row = rows.get(key) ?? {partnerCode, partnerName: label, time, tradeValueEur: 0, quantityKg: 0, hasValue: false, hasQuantity: false};
     if (indicator === 'VALUE_IN_EUROS') { row.tradeValueEur += rawValue; row.hasValue = true; }
     else if (indicator === 'QUANTITY_IN_100KG') { row.quantityKg += rawValue * 100; row.hasQuantity = true; }
