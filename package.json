@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:desk": "node --conditions=react-server tests/desk.test.mjs"
+    "test:desk": "node --conditions=react-server tests/desk.test.mjs",
+    "test:trade": "node --experimental-strip-types tests/trade-flows.test.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

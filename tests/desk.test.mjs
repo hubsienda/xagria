@@ -71,7 +71,9 @@ await withServer({}, async () => {
   const denied = await request('/desk');
   assert.equal(denied.status, 307);
   assert(!(await denied.text()).includes('Agricultural Intelligence Desk'));
+  assert.equal((await request('/desk/trade-flows')).status, 307);
   assert.equal((await request('/desk/api/session')).status, 401);
+  assert.equal((await request('/desk/api/trade-flows', {method: 'POST', headers: {origin, 'content-type': 'application/json'}, body: '{}'})).status, 401);
   // Even bypassing route middleware must not bypass server authorisation.
   assert.equal((await request('/desk/api/session', {headers: {'x-middleware-subrequest': 'middleware:middleware:middleware:middleware:middleware'}})).status, 401);
   assert.equal((await request('/desk/login')).status, 200);
@@ -89,12 +91,20 @@ await withServer({}, async () => {
   assert.equal(desk.status, 200);
   const deskHtml = await desk.text();
   assert(deskHtml.includes('Agricultural Intelligence Desk'));
+  assert(deskHtml.includes('LIVE'));
+  assert(deskHtml.includes('href="/desk/trade-flows"'));
   assert(deskHtml.includes('Planned'));
   assert(!deskHtml.includes(passphrase) && !deskHtml.includes(secret));
+  const tradeFlows = await request('/desk/trade-flows', {headers: {cookie}});
+  assert.equal(tradeFlows.status, 200);
+  const tradeFlowsHtml = await tradeFlows.text();
+  assert(tradeFlowsHtml.includes('Trade Flows'));
+  assert(!tradeFlowsHtml.includes(passphrase) && !tradeFlowsHtml.includes(secret));
   assert.equal((await request('/desk/api/session', {headers: {cookie}})).status, 200);
   for (const value of [createSession(now - SESSION_SECONDS), token + 'x']) {
     const headers = {cookie: `xagria_desk=${value}`};
     assert.equal((await request('/desk', {headers})).status, 307);
+    assert.equal((await request('/desk/trade-flows', {headers})).status, 307);
     assert.equal((await request('/desk/api/session', {headers})).status, 401);
   }
   assert.equal((await post('/desk/logout', '', undefined)).status, 401);
@@ -103,12 +113,14 @@ await withServer({}, async () => {
   assert(logout.headers.get('set-cookie').includes('Max-Age=0'));
   const clearedCookie = logout.headers.get('set-cookie').split(';')[0];
   assert.equal((await request('/desk', {headers: {cookie: clearedCookie}})).status, 307);
+  assert.equal((await request('/desk/trade-flows', {headers: {cookie: clearedCookie}})).status, 307);
   assert.equal((await request('/desk/api/session', {headers: {cookie: clearedCookie}})).status, 401);
-  console.log('PASS: gateway, 18 calculator routes, three locale homepages/detection, login, server protection, cookie flags, tampering/expiry and logout');
+  console.log('PASS: gateway, 18 calculator routes, three locale homepages/detection, login, Trade Flows protection, cookie flags, tampering/expiry and logout');
 });
 await withServer({XAGRIA_SESSION_SECRET: ''}, async () => {
   assert.equal((await request('/desk/api/session', {headers: {cookie: `xagria_desk=${token}`}})).status, 401);
   assert.equal((await request('/desk')).status, 307);
+  assert.equal((await request('/desk/trade-flows')).status, 307);
   const login = await request('/desk/login');
   assert((await login.text()).includes('must configure the server'));
   assert.equal((await post('/desk/login/submit', new URLSearchParams({passphrase}))).status, 503);
