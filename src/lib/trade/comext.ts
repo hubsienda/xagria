@@ -1,14 +1,11 @@
 import 'server-only';
 import {COMEXT_BASE_URL, COMEXT_DATASET, COMEXT_REVALIDATE_SECONDS, COMEXT_TIMEOUT_MS} from './config';
+import {TradeDataError} from './errors';
 import type {TradeDirection, TradeRecord} from './types';
 
 interface JsonStatDimension { category?: {index?: Record<string, number> | string[]; label?: Record<string, string>}; }
 interface JsonStatResponse { id?: string[]; size?: number[]; value?: number[] | Record<string, number>; dimension?: Record<string, JsonStatDimension>; error?: {status?: string | number; label?: string}; warning?: {status?: string | number; label?: string}; }
 type ValidJsonStatResponse = JsonStatResponse & {id: string[]; size: number[]; dimension: Record<string, JsonStatDimension>};
-
-export class ComextError extends Error {
-  constructor(public userMessage: string, message?: string) { super(message ?? userMessage); this.name = 'ComextError'; }
-}
 
 const flowCode = (direction: TradeDirection) => direction === 'imports' ? '1' : '2';
 function addFilters(params: URLSearchParams, name: string, values: string[]) { for (const value of values) params.append(name, value); }
@@ -36,16 +33,16 @@ async function fetchJsonStat(params: URLSearchParams): Promise<ValidJsonStatResp
   try {
     response = await fetch(url, {headers: {accept: 'application/json'}, next: {revalidate: COMEXT_REVALIDATE_SECONDS}, signal: AbortSignal.timeout(COMEXT_TIMEOUT_MS)});
   } catch (error) {
-    throw new ComextError('Eurostat data are temporarily unavailable. Try again shortly.', error instanceof Error ? error.message : String(error));
+    throw new TradeDataError('Eurostat data are temporarily unavailable. Try again shortly.', error instanceof Error ? error.message : String(error));
   }
   if (!response.ok) {
-    if (response.status === 404 || response.status === 400) throw new ComextError('No trade data were returned for this product, market and period.');
-    throw new ComextError('Eurostat data are temporarily unavailable. Try again shortly.', `Comext HTTP ${response.status}`);
+    if (response.status === 404 || response.status === 400) throw new TradeDataError('No trade data were returned for this product, market and period.');
+    throw new TradeDataError('Eurostat data are temporarily unavailable. Try again shortly.', `Comext HTTP ${response.status}`);
   }
   const data = await response.json() as JsonStatResponse;
-  if (data.error) throw new ComextError('No trade data were returned for this product, market and period.', data.error.label);
-  if (data.warning) throw new ComextError('Eurostat data are temporarily unavailable. Try again shortly.', data.warning.label);
-  if (!data.id || !data.size || !data.dimension) throw new ComextError('Eurostat returned an unexpected response. Try again shortly.');
+  if (data.error) throw new TradeDataError('No trade data were returned for this product, market and period.', data.error.label);
+  if (data.warning) throw new TradeDataError('Eurostat data are temporarily unavailable. Try again shortly.', data.warning.label);
+  if (!data.id || !data.size || !data.dimension) throw new TradeDataError('Eurostat returned an unexpected response. Try again shortly.');
   return data as ValidJsonStatResponse;
 }
 
@@ -55,16 +52,16 @@ export async function fetchLatestAvailableMonth(reporter: string, productCodes: 
   const data = await fetchJsonStat(params);
   const times = categoryCodes(data.dimension?.time ?? data.dimension?.time_period);
   const entries = valueEntries(data.value);
-  if (!entries.length || !times.length) throw new ComextError('No trade data were returned for this product and market.');
+  if (!entries.length || !times.length) throw new TradeDataError('No trade data were returned for this product and market.');
   const timeDimensionIndex = data.id.findIndex(id => id === 'time' || id === 'time_period');
-  if (timeDimensionIndex < 0) throw new ComextError('Eurostat returned an unexpected response. Try again shortly.');
+  if (timeDimensionIndex < 0) throw new TradeDataError('Eurostat returned an unexpected response. Try again shortly.');
   let latest = '';
   for (const [flatIndex] of entries) {
     const position = decodeIndex(flatIndex, data.size)[timeDimensionIndex];
     const time = times[position];
     if (time && time > latest) latest = time;
   }
-  if (!latest) throw new ComextError('No trade data were returned for this product and market.');
+  if (!latest) throw new TradeDataError('No trade data were returned for this product and market.');
   return latest;
 }
 
@@ -80,9 +77,9 @@ export async function fetchTradeRecords(reporter: string, productCodes: string[]
   const productDim = dimensions.indexOf('product');
   const indicatorDim = dimensions.indexOf('indicators');
   const timeDim = dimensions.findIndex(id => id === 'time' || id === 'time_period');
-  if ([partnerDim, productDim, indicatorDim, timeDim].some(index => index < 0)) throw new ComextError('Eurostat returned an unexpected response. Try again shortly.');
+  if ([partnerDim, productDim, indicatorDim, timeDim].some(index => index < 0)) throw new TradeDataError('Eurostat returned an unexpected response. Try again shortly.');
 
-  type Acc = {partnerCode: string; partnerName: string; time: string; tradeValueEur: number; quantityKg: number; hasValue: boolean; hasQuantity: boolean};
+  type Acc = {partnerCode: string; partnerName: string; time: string; tradeValue: number; quantityKg: number; hasValue: boolean; hasQuantity: boolean};
   const rows = new Map<string, Acc>();
   for (const [flatIndex, rawValue] of valueEntries(data.value)) {
     if (!Number.isFinite(rawValue)) continue;
@@ -94,13 +91,11 @@ export async function fetchTradeRecords(reporter: string, productCodes: string[]
     const indicator = positionsByDimension.get('indicators')?.[coordinates[indicatorDim]];
     if (!partnerCode || !productCode || !time || !indicator) continue;
     const label = labelsByDimension.get('partner')?.[partnerCode] ?? partnerCode;
-    // Keep product cells separate so missing/confidential quantity or value in one code
-    // cannot be hidden by a complete cell from another code in the selected code group.
     const key = `${partnerCode}|${time}|${productCode}`;
-    const row = rows.get(key) ?? {partnerCode, partnerName: label, time, tradeValueEur: 0, quantityKg: 0, hasValue: false, hasQuantity: false};
-    if (indicator === 'VALUE_IN_EUROS') { row.tradeValueEur += rawValue; row.hasValue = true; }
+    const row = rows.get(key) ?? {partnerCode, partnerName: label, time, tradeValue: 0, quantityKg: 0, hasValue: false, hasQuantity: false};
+    if (indicator === 'VALUE_IN_EUROS') { row.tradeValue += rawValue; row.hasValue = true; }
     else if (indicator === 'QUANTITY_IN_100KG') { row.quantityKg += rawValue * 100; row.hasQuantity = true; }
     rows.set(key, row);
   }
-  return Array.from(rows.values()).map(row => ({partnerCode: row.partnerCode, partnerName: row.partnerName, time: row.time, tradeValueEur: row.hasValue ? row.tradeValueEur : null, quantityKg: row.hasQuantity ? row.quantityKg : null}));
+  return Array.from(rows.values()).map(row => ({partnerCode: row.partnerCode, partnerName: row.partnerName, time: row.time, tradeValue: row.hasValue ? row.tradeValue : null, quantityKg: row.hasQuantity ? row.quantityKg : null}));
 }

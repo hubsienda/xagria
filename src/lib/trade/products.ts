@@ -1,35 +1,65 @@
-import type {TradeProduct} from './types';
+import type {ProductSourceMapping, TradeProduct} from './types';
 
-// DS-045409 accepts HS2/4/6 hierarchy codes and CN8 codes. CN8 selections below
-// use current/stable fresh-produce lines where a narrower commercial distinction is useful.
-// Broader HS6 hierarchy codes are used when they provide the statistically sound product group.
-export const TRADE_PRODUCTS: TradeProduct[] = [
-  {id: 'oranges', name: 'Oranges', codes: ['080510'], codeLabel: '080510'},
-  {id: 'mandarins', name: 'Mandarins / clementines', codes: ['080521', '080522', '080529'], codeLabel: '080521 + 080522 + 080529'},
-  {id: 'lemons-limes', name: 'Lemons / limes', codes: ['080550'], codeLabel: '080550'},
-  {id: 'grapefruit', name: 'Grapefruit', codes: ['080540'], codeLabel: '080540'},
-  {id: 'apples', name: 'Apples', codes: ['080810'], codeLabel: '080810'},
-  {id: 'pears', name: 'Pears', codes: ['080830'], codeLabel: '080830'},
-  {id: 'table-grapes', name: 'Table grapes', codes: ['08061010'], codeLabel: '08061010'},
-  {id: 'strawberries', name: 'Strawberries', codes: ['081010'], codeLabel: '081010'},
-  {id: 'peaches-nectarines', name: 'Peaches / nectarines', codes: ['080930'], codeLabel: '080930'},
-  {id: 'cherries', name: 'Cherries', codes: ['080921', '080929'], codeLabel: '080921 + 080929'},
-  {id: 'kiwifruit', name: 'Kiwifruit', codes: ['081050'], codeLabel: '081050'},
-  {id: 'melons', name: 'Melons (excluding watermelons)', codes: ['080719'], codeLabel: '080719'},
-  {id: 'watermelons', name: 'Watermelons', codes: ['080711'], codeLabel: '080711'},
-  {id: 'avocados', name: 'Avocados', codes: ['080440'], codeLabel: '080440'},
-  {id: 'tomatoes', name: 'Tomatoes', codes: ['070200'], codeLabel: '070200'},
-  {id: 'peppers', name: 'Peppers (Capsicum / Pimenta)', codes: ['070960'], codeLabel: '070960'},
-  {id: 'cucumbers', name: 'Cucumbers', codes: ['07070005'], codeLabel: '07070005'},
-  {id: 'courgettes', name: 'Courgettes', codes: ['07099310'], codeLabel: '07099310'},
-  {id: 'lettuce', name: 'Lettuce', codes: ['070511', '070519'], codeLabel: '070511 + 070519'},
-  {id: 'onions', name: 'Onions', codes: ['07031011', '07031019'], codeLabel: '07031011 + 07031019'},
-  {id: 'garlic', name: 'Garlic', codes: ['070320'], codeLabel: '070320'},
-  {id: 'potatoes', name: 'Potatoes (excluding seed)', codes: ['070190'], codeLabel: '070190'},
-  {id: 'artichokes', name: 'Artichokes', codes: ['07099100'], codeLabel: '07099100'},
-  {id: 'asparagus', name: 'Asparagus', codes: ['07092000'], codeLabel: '07092000'},
+const eurostat = (codes: string[], codeLabel = codes.join(' + '), scopeNote?: string): ProductSourceMapping => ({codes, codeLabel, commodityField: 'product', scopeNote});
+const hmrc = (codes: string[], commodityField: 'Hs6Code' | 'Cn8Code', codeLabel = codes.join(' + '), scopeNote?: string): ProductSourceMapping => ({codes, codeLabel, commodityField, scopeNote});
+const both = (codes: string[], codeLabel = codes.join(' + '), scopeNote?: string) => ({
+  eurostat: eurostat(codes, codeLabel, scopeNote),
+  hmrc: hmrc(codes, codes.every(code => code.length === 8) ? 'Cn8Code' : 'Hs6Code', codeLabel, scopeNote),
+});
+
+// CN 2026 / HS mappings verified against the current EU Combined Nomenclature and
+// HMRC UK Trade Info commodity model. Broad commercial selections use explicit child
+// codes rather than parent+child combinations, preventing statistical double counting.
+const products: TradeProduct[] = [
+  {id: 'apples', name: 'Apples', mappings: both(['080810'])},
+  {id: 'artichokes', name: 'Artichokes', mappings: both(['07099100'])},
+  {id: 'asparagus', name: 'Asparagus', mappings: both(['07092000'])},
+  {id: 'aubergines', name: 'Aubergines', mappings: both(['070930'])},
+  {id: 'avocados', name: 'Avocados', mappings: both(['080440'])},
+  {id: 'berries', name: 'Berries', mappings: both(['081020', '081030', '081040'], '081020 + 081030 + 081040', 'Selected berry groups: raspberries/blackberries, currants/gooseberries, cranberries/bilberries and other Vaccinium fruit. Strawberries remain a separate selection.')},
+  {id: 'cherries', name: 'Cherries', mappings: both(['080921', '080929'])},
+  {id: 'chillies', name: 'Chillies / chilli peppers', mappings: {
+    eurostat: eurostat(['07096099'], '07096099', 'CN 07096099 is the residual fresh Capsicum/Pimenta category other than sweet peppers and specified industrial-use lines.'),
+    hmrc: hmrc(['07096099'], 'Cn8Code', '07096099', 'UK CN8 07096099 is the residual fresh Capsicum/Pimenta category; it is broader than named chilli varieties.'),
+  }, selectorNote: 'broader customs category'},
+  {id: 'citrus-fruit', name: 'Citrus fruit', mappings: both(['080510', '080521', '080522', '080529', '080540', '080550', '080590'], '080510 + 080521 + 080522 + 080529 + 080540 + 080550 + 080590', 'Aggregate of non-overlapping HS6 citrus subheadings; specific citrus products remain separately selectable.')},
+  {id: 'courgettes', name: 'Courgettes', mappings: both(['07099310'])},
+  {id: 'cucumbers', name: 'Cucumbers', mappings: both(['07070005'])},
+  {id: 'figs', name: 'Figs', mappings: both(['080420'])},
+  {id: 'garlic', name: 'Garlic', mappings: both(['070320'])},
+  {id: 'grapefruit', name: 'Grapefruit', mappings: both(['080540'])},
+  {id: 'kiwifruit', name: 'Kiwifruit', mappings: both(['081050'])},
+  {id: 'lemons-limes', name: 'Lemons / limes', mappings: both(['080550'])},
+  {id: 'lettuce', name: 'Lettuce', mappings: both(['070511', '070519'])},
+  {id: 'mandarins', name: 'Mandarins / clementines', mappings: both(['080521', '080522', '080529'])},
+  {id: 'mangoes', name: 'Mangoes', mappings: both(['080450'], '080450', 'HS/CN 080450 groups guavas, mangoes and mangosteens. The statistics cannot isolate mangoes alone.'), selectorNote: 'broader customs category'},
+  {id: 'melons', name: 'Melons (excluding watermelons)', mappings: both(['080719'])},
+  {id: 'onions', name: 'Onions', mappings: both(['07031011', '07031019'])},
+  {id: 'oranges', name: 'Oranges', mappings: both(['080510'])},
+  {id: 'passion-pitahaya', name: 'Passion fruit / pitahaya & related tropical fruit', mappings: {
+    eurostat: eurostat(['08109020'], '08109020', 'CN 08109020 groups tamarinds, cashew apples, lychees, jackfruit, sapodilla plums, passion fruit, carambola and pitahaya.'),
+    hmrc: hmrc(['081090'], 'Hs6Code', '081090', 'UK HS6 081090 is a broader other-fresh-fruit category and cannot isolate passion fruit or pitahaya individually.'),
+  }, selectorNote: 'broader customs category'},
+  {id: 'peaches-nectarines', name: 'Peaches / nectarines', mappings: both(['080930'])},
+  {id: 'pears', name: 'Pears', mappings: both(['080830'])},
+  {id: 'peppers', name: 'Peppers (Capsicum / Pimenta)', mappings: both(['070960'])},
+  {id: 'potatoes', name: 'Potatoes (excluding seed)', mappings: both(['070190'])},
+  {id: 'specialist-herbs', name: 'Specialist / exotic fresh herbs', mappings: {
+    eurostat: eurostat(['07099990'], '07099990', 'CN 07099990 is a broader residual fresh/chilled vegetable category; basil, coriander, mint and Thai basil are not separately identifiable in these trade statistics.'),
+    hmrc: hmrc(['07099990'], 'Cn8Code', '07099990', 'UK CN8 07099990 is a broader residual fresh/chilled vegetable category; individual fresh herbs cannot be isolated reliably.'),
+  }, selectorNote: 'broader customs category'},
+  {id: 'strawberries', name: 'Strawberries', mappings: both(['081010'])},
+  {id: 'table-grapes', name: 'Table grapes', mappings: both(['08061010'])},
+  {id: 'tomatoes', name: 'Tomatoes', mappings: both(['070200'])},
+  {id: 'watermelons', name: 'Watermelons', mappings: both(['080711'])},
 ];
+
+export const TRADE_PRODUCTS = products.slice().sort((a, b) => a.name.localeCompare(b.name, 'en-GB'));
 
 export function getTradeProduct(id: string) {
   return TRADE_PRODUCTS.find(product => product.id === id) ?? null;
+}
+
+export function getProductMapping(product: TradeProduct, provider: 'eurostat' | 'hmrc') {
+  return product.mappings[provider] ?? null;
 }
