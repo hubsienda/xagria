@@ -82,7 +82,7 @@ export async function fetchTradeRecords(reporter: string, productCodes: string[]
   const timeDim = dimensions.findIndex(id => id === 'time' || id === 'time_period');
   if ([partnerDim, productDim, indicatorDim, timeDim].some(index => index < 0)) throw new ComextError('Eurostat returned an unexpected response. Try again shortly.');
 
-  type Acc = {partnerCode: string; partnerName: string; time: string; tradeValueEur: number; quantityKg: number; hasValue: boolean; hasQuantity: boolean};
+  type Acc = {partnerCode: string; partnerName: string; time: string; tradeValue: number; quantityKg: number; hasValue: boolean; hasQuantity: boolean};
   const rows = new Map<string, Acc>();
   for (const [flatIndex, rawValue] of valueEntries(data.value)) {
     if (!Number.isFinite(rawValue)) continue;
@@ -94,13 +94,11 @@ export async function fetchTradeRecords(reporter: string, productCodes: string[]
     const indicator = positionsByDimension.get('indicators')?.[coordinates[indicatorDim]];
     if (!partnerCode || !productCode || !time || !indicator) continue;
     const label = labelsByDimension.get('partner')?.[partnerCode] ?? partnerCode;
-    // Keep product cells separate so missing/confidential quantity or value in one code
-    // cannot be hidden by a complete cell from another code in the selected code group.
     const key = `${partnerCode}|${time}|${productCode}`;
-    const row = rows.get(key) ?? {partnerCode, partnerName: label, time, tradeValueEur: 0, quantityKg: 0, hasValue: false, hasQuantity: false};
-    if (indicator === 'VALUE_IN_EUROS') { row.tradeValueEur += rawValue; row.hasValue = true; }
+    const row = rows.get(key) ?? {partnerCode, partnerName: label, time, tradeValue: 0, quantityKg: 0, hasValue: false, hasQuantity: false};
+    if (indicator === 'VALUE_IN_EUROS') { row.tradeValue += rawValue; row.hasValue = true; }
     else if (indicator === 'QUANTITY_IN_100KG') { row.quantityKg += rawValue * 100; row.hasQuantity = true; }
     rows.set(key, row);
   }
-  return Array.from(rows.values()).map(row => ({partnerCode: row.partnerCode, partnerName: row.partnerName, time: row.time, tradeValueEur: row.hasValue ? row.tradeValueEur : null, quantityKg: row.hasQuantity ? row.quantityKg : null}));
+  return Array.from(rows.values()).map(row => ({partnerCode: row.partnerCode, partnerName: row.partnerName, time: row.time, tradeValue: row.hasValue ? row.tradeValue : null, quantityKg: row.hasQuantity ? row.quantityKg : null}));
 }
