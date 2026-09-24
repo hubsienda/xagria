@@ -8,6 +8,7 @@ export const HMRC_DATASET_LABEL = 'UK Overseas Trade Statistics';
 const REVALIDATE_SECONDS = 6 * 60 * 60;
 const TIMEOUT_MS = 20_000;
 const MAX_PAGES = 100;
+const USER_AGENT = 'XAGRIA-Trade-Flows/1.0 (+https://www.xagria.com/)';
 
 interface ODataResponse<T> {
   value?: T[];
@@ -18,6 +19,14 @@ interface HmrcCountry {
   CountryId?: number;
   CountryName?: string;
   CountryCodeAlpha?: string;
+}
+
+interface HmrcCommodity {
+  CommodityId?: number;
+  Cn8Code?: string;
+  Hs2Code?: string;
+  Hs4Code?: string;
+  Hs6Code?: string;
 }
 
 interface HmrcAggregateRow {
@@ -42,16 +51,12 @@ function flowFilter(direction: TradeDirection) {
     : '(FlowTypeId eq 2 or FlowTypeId eq 4)';
 }
 
-function commodityClause(code: string) {
-  if (/^\d{8}$/.test(code)) return `Commodity/Cn8Code eq '${code}'`;
-  if (/^\d{6}$/.test(code)) return `Commodity/Hs6Code eq '${code}'`;
-  if (/^\d{4}$/.test(code)) return `Commodity/Hs4Code eq '${code}'`;
-  if (/^\d{2}$/.test(code)) return `Commodity/Hs2Code eq '${code}'`;
+function commodityField(code: string) {
+  if (/^\d{8}$/.test(code)) return 'Cn8Code';
+  if (/^\d{6}$/.test(code)) return 'Hs6Code';
+  if (/^\d{4}$/.test(code)) return 'Hs4Code';
+  if (/^\d{2}$/.test(code)) return 'Hs2Code';
   throw new HmrcError('This product cannot currently be isolated reliably in the selected trade dataset.', `Unsupported HMRC commodity code ${code}`);
-}
-
-function productFilter(codes: string[]) {
-  return `(${codes.map(commodityClause).join(' or ')})`;
 }
 
 function monthId(month: string) {
@@ -68,7 +73,7 @@ async function fetchPage<T>(url: string): Promise<ODataResponse<T>> {
   let response: Response;
   try {
     response = await fetch(url, {
-      headers: {accept: 'application/json'},
+      headers: {accept: 'application/json', 'user-agent': USER_AGENT},
       next: {revalidate: REVALIDATE_SECONDS},
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
@@ -105,6 +110,27 @@ async function fetchOData<T>(path: string, params: URLSearchParams): Promise<ODa
   return {value: values};
 }
 
+async function resolveCommodityIds(productCodes: string[]) {
+  const ids = new Set<number>();
+  for (const code of productCodes) {
+    const field = commodityField(code);
+    const params = new URLSearchParams({
+      '$filter': `${field} eq '${code}'`,
+      '$select': 'CommodityId,Cn8Code,Hs2Code,Hs4Code,Hs6Code',
+    });
+    const data = await fetchOData<HmrcCommodity>('Commodity', params);
+    for (const row of data.value ?? []) {
+      if (row.CommodityId != null && Number.isInteger(row.CommodityId)) ids.add(row.CommodityId);
+    }
+  }
+  if (!ids.size) throw new HmrcError('This product cannot currently be isolated reliably in the selected trade dataset.');
+  return Array.from(ids);
+}
+
+function commodityIdFilter(ids: number[]) {
+  return `(${ids.map(id => `CommodityId eq ${id}`).join(' or ')})`;
+}
+
 async function fetchCountryMap() {
   const params = new URLSearchParams({'$select': 'CountryId,CountryName,CountryCodeAlpha'});
   const data = await fetchOData<HmrcCountry>('Country', params);
@@ -118,8 +144,9 @@ async function fetchCountryMap() {
 }
 
 export async function fetchHmrcLatestAvailableMonth(productCodes: string[], direction: TradeDirection) {
+  const commodityIds = await resolveCommodityIds(productCodes);
   const params = new URLSearchParams({
-    '$filter': `${productFilter(productCodes)} and ${flowFilter(direction)}`,
+    '$filter': `${commodityIdFilter(commodityIds)} and ${flowFilter(direction)}`,
     '$orderby': 'MonthId desc',
     '$top': '1',
     '$select': 'MonthId',
@@ -131,7 +158,8 @@ export async function fetchHmrcLatestAvailableMonth(productCodes: string[], dire
 }
 
 export async function fetchHmrcTradeRecords(productCodes: string[], direction: TradeDirection, sinceMonth: string, untilMonth: string): Promise<TradeRecord[]> {
-  const filter = `${productFilter(productCodes)} and ${flowFilter(direction)} and MonthId ge ${monthId(sinceMonth)} and MonthId le ${monthId(untilMonth)}`;
+  const commodityIds = await resolveCommodityIds(productCodes);
+  const filter = `${commodityIdFilter(commodityIds)} and ${flowFilter(direction)} and MonthId ge ${monthId(sinceMonth)} and MonthId le ${monthId(untilMonth)}`;
   const apply = `filter(${filter})/groupby((CountryId,MonthId,CommodityId,SuppressionIndex),aggregate(Value with sum as TradeValue,NetMass with sum as QuantityKg))`;
   const [data, countries] = await Promise.all([
     fetchOData<HmrcAggregateRow>('OTS', new URLSearchParams({'$apply': apply})),
