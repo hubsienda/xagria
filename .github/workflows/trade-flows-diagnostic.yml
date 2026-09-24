@@ -1,0 +1,19 @@
+name: Trade Flows diagnostic
+
+on:
+  push:
+    branches:
+      - feat/trade-flows-v1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run test:trade
+      - run: npm run build
