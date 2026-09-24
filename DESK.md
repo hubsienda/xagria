@@ -38,3 +38,9 @@ The tests generate ephemeral credentials internally, start the production build 
 Local verification completed: production build and all automated desk tests passed on Next.js 15.5.26. `git diff --check` passed. A Chromium UI smoke test could not run because the browser executable is unavailable in the execution environment; actual desktop/mobile browser and Vercel HTTPS checks remain release gates.
 
 The final npm audit has no critical advisories. It still reports one high PostCSS advisory group in Next.js's nested build dependency and one moderate inherited Next.js finding; its suggested complete fix is a Next.js 16 major upgrade. Stage 1 does not accept or process user-supplied CSS. This remaining dependency issue is recorded rather than introducing an untested major framework migration.
+
+## Diagnosing a disabled production login
+
+A rejected configuration writes `[XAGRIA_DESK_CONFIG_INVALID]` followed by fixed failure codes to server runtime logs. Codes distinguish missing/empty values, minimum/maximum validation failures, and identical credentials. Values and actual lengths are never logged; the public page keeps its generic error. Repeated identical failures are suppressed within a warm server instance, so search the deployment's earlier logs as well as the most recent request.
+
+After deploying, request `/desk/login`, then filter Vercel Runtime Logs for `XAGRIA_DESK_CONFIG_INVALID`. Correct the reported variable in the correct project and Production environment, then create a fresh Production deployment. A successful build alone does not establish that runtime configuration is valid.

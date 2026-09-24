@@ -5,11 +5,30 @@ export const SESSION_COOKIE = 'xagria_desk';
 export const SESSION_SECONDS = 8 * 60 * 60;
 export const CONFIG_ERROR = 'Private Desk is unavailable. The owner must configure the server authentication settings.';
 
+// Only fixed diagnostic codes reach server logs; never log values or lengths.
+let lastConfigFailure = '';
+
 export function getConfig() {
   const passphrase = process.env.XAGRIA_DESK_PASSPHRASE;
   const secret = process.env.XAGRIA_SESSION_SECRET;
-  if (!passphrase || passphrase.trim().length < 16 || passphrase.length > 1024 ||
-      !secret || secret.trim().length < 32 || secret.length > 4096 || secret === passphrase) return null;
+  const failures: string[] = [];
+  if (!passphrase) failures.push('PASSPHRASE_MISSING_OR_EMPTY');
+  else if (passphrase.trim().length < 16) failures.push('PASSPHRASE_BELOW_MINIMUM');
+  else if (passphrase.length > 1024) failures.push('PASSPHRASE_ABOVE_MAXIMUM');
+  if (!secret) failures.push('SESSION_SECRET_MISSING_OR_EMPTY');
+  else if (secret.trim().length < 32) failures.push('SESSION_SECRET_BELOW_MINIMUM');
+  else if (secret.length > 4096) failures.push('SESSION_SECRET_ABOVE_MAXIMUM');
+  if (passphrase && secret && secret === passphrase) failures.push('CREDENTIALS_IDENTICAL');
+  if (!passphrase || !secret || failures.length) {
+    const diagnostic = failures.join(',');
+    // Suppress repeated identical reports within a warm server instance.
+    if (diagnostic !== lastConfigFailure) {
+      console.error('[XAGRIA_DESK_CONFIG_INVALID]', diagnostic);
+      lastConfigFailure = diagnostic;
+    }
+    return null;
+  }
+  lastConfigFailure = '';
   return {passphrase, secret};
 }
 
