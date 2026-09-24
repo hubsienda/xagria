@@ -39,8 +39,10 @@ interface HmrcAggregateRow {
 }
 
 export class HmrcError extends Error {
-  constructor(public userMessage: string, message?: string) {
+  userMessage: string;
+  constructor(userMessage: string, message?: string) {
     super(message ?? userMessage);
+    this.userMessage = userMessage;
     this.name = 'HmrcError';
   }
 }
