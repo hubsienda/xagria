@@ -52,9 +52,9 @@ export default async function LocaleLayout({
         <footer className="fixed bottom-0 left-0 right-0 border-t border-white/5 bg-surface/90 p-4 backdrop-blur-md print:hidden">
           <div className="mx-auto flex max-w-6xl items-center justify-center px-4 text-center">
             <div className="text-[11px] font-bold tracking-wide text-gray-400">
-              XAGRIA · Precision without Friction · brought to you with love ❤️ by{' '}
+              XAGRIA · International Agri Brokerage · with ❤️ by{' '}
               <a
-                href="https://sienda.co.uk"
+                href="https://sienda.co.uk/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-brand hover:underline"

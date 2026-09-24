@@ -2,7 +2,7 @@ import './globals.css';
 
 export const metadata = {
   title: 'XAGRIA',
-  description: 'Precision without friction for the modern agricultural sector',
+  description: 'International agrifood brokerage and intelligence, identifying fresh-produce opportunities and connecting supply with demand across borders.',
   applicationName: 'XAGRIA',
   icons: {
     icon: [
