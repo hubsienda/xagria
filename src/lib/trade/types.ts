@@ -1,30 +1,37 @@
 export type TradeDirection = 'imports' | 'exports';
 export type PeriodPreset = 12 | 24 | 36;
+export type TradeProviderId = 'eurostat' | 'hmrc';
+
+export interface ProductSourceMapping {
+  codes: string[];
+  codeLabel: string;
+  note?: string;
+}
 
 export interface TradeProduct {
   id: string;
   name: string;
-  codes: string[];
-  codeLabel: string;
+  sources: Partial<Record<TradeProviderId, ProductSourceMapping>>;
 }
 
 export interface ReporterMarket {
   code: string;
   name: string;
+  provider: TradeProviderId;
 }
 
 export interface TradeRecord {
   partnerCode: string;
   partnerName: string;
   time: string;
-  tradeValueEur: number | null;
+  tradeValue: number | null;
   quantityKg: number | null;
 }
 
 export interface TradeAggregate {
   quantityKg: number;
-  tradeValueEur: number;
-  unitValueEurKg: number | null;
+  tradeValue: number;
+  unitValue: number | null;
 }
 
 export interface ComparisonMetric {
@@ -68,10 +75,21 @@ export interface BrokerageSignal {
   evidence: string;
 }
 
-export interface TradeAnalysis {
+export interface TradeSourceMetadata {
+  provider: TradeProviderId;
+  sourceName: string;
   dataset: string;
   datasetLabel: string;
   sourceUrl: string;
+  currencyCode: 'EUR' | 'GBP';
+  currencySymbol: '€' | '£';
+  codeLabel: string;
+  productNote?: string;
+  methodology: string[];
+}
+
+export interface TradeAnalysis {
+  source: TradeSourceMetadata;
   latestMonth: string;
   reporter: ReporterMarket;
   direction: TradeDirection;
@@ -85,4 +103,10 @@ export interface TradeAnalysis {
   originEvolution: OriginEvolutionRow[];
   signals: BrokerageSignal[];
   worthInvestigating: string;
+}
+
+export interface TradeProviderResult {
+  latestMonth: string;
+  records: TradeRecord[];
+  source: TradeSourceMetadata;
 }
