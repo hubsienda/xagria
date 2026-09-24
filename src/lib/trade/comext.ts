@@ -102,5 +102,5 @@ export async function fetchTradeRecords(reporter: string, productCodes: string[]
     else if (indicator === 'QUANTITY_IN_100KG') { row.quantityKg += rawValue * 100; row.hasQuantity = true; }
     rows.set(key, row);
   }
-  return [...rows.values()].map(row => ({partnerCode: row.partnerCode, partnerName: row.partnerName, time: row.time, tradeValueEur: row.hasValue ? row.tradeValueEur : null, quantityKg: row.hasQuantity ? row.quantityKg : null}));
+  return Array.from(rows.values()).map(row => ({partnerCode: row.partnerCode, partnerName: row.partnerName, time: row.time, tradeValueEur: row.hasValue ? row.tradeValueEur : null, quantityKg: row.hasQuantity ? row.quantityKg : null}));
 }
