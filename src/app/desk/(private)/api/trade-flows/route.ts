@@ -1,7 +1,7 @@
 import {NextResponse} from 'next/server';
 import {hasDeskSession} from '@/lib/desk/auth';
 import {analyseTradeFlows} from '@/lib/trade/analysis';
-import {ComextError} from '@/lib/trade/comext';
+import {TradeDataError} from '@/lib/trade/errors';
 import type {TradeDirection} from '@/lib/trade/types';
 
 export const runtime = 'nodejs';
@@ -17,10 +17,11 @@ export async function POST(request: Request) {
     const analysis = await analyseTradeFlows({productId: body.productId, reporterCode: body.reporterCode, direction: body.direction as TradeDirection, periodMonths: body.periodMonths});
     return NextResponse.json({analysis});
   } catch (error) {
-    if (error instanceof ComextError) return NextResponse.json({error: error.userMessage}, {status: 503});
+    if (error instanceof TradeDataError) return NextResponse.json({error: error.userMessage}, {status: 503});
     if (error instanceof Error && ['INVALID_PRODUCT', 'INVALID_REPORTER', 'INVALID_DIRECTION', 'INVALID_PERIOD'].includes(error.message)) return NextResponse.json({error: 'Invalid Trade Flows selection.'}, {status: 400});
+    if (error instanceof Error && error.message === 'UNSUPPORTED_PRODUCT') return NextResponse.json({error: 'This product cannot currently be isolated reliably in the selected trade dataset.'}, {status: 422});
     if (error instanceof Error && error.message === 'NO_RESULTS') return NextResponse.json({error: 'No trade data were returned for this product, market and period.'}, {status: 404});
     console.error('Trade Flows analysis failed', error instanceof Error ? error.message : 'Unknown error');
-    return NextResponse.json({error: 'Eurostat data are temporarily unavailable. Try again shortly.'}, {status: 503});
+    return NextResponse.json({error: 'Trade data are temporarily unavailable. Try again shortly.'}, {status: 503});
   }
 }
