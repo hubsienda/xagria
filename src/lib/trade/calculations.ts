@@ -36,7 +36,7 @@ export function marketShare(quantity: number | null | undefined, totalQuantity: 
 
 export function isCountryPartner(code: string) {
   const normalised = code.toUpperCase();
-  return /^[A-Z]{2}$/.test(normalised) && !normalised.startsWith('Q') && normalised !== 'EU' && normalised !== 'EA';
+  return /^[A-Z]{2}$/.test(normalised) && !normalised.startsWith('Q') && !['EU', 'EA', 'ZY'].includes(normalised);
 }
 
 export function aggregateRecords(records: TradeRecord[]): TradeAggregate {
