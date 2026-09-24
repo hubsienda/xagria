@@ -7,7 +7,8 @@ interface JsonStatResponse { id?: string[]; size?: number[]; value?: number[] | 
 type ValidJsonStatResponse = JsonStatResponse & {id: string[]; size: number[]; dimension: Record<string, JsonStatDimension>};
 
 export class ComextError extends Error {
-  constructor(public userMessage: string, message?: string) { super(message ?? userMessage); this.name = 'ComextError'; }
+  userMessage: string;
+  constructor(userMessage: string, message?: string) { super(message ?? userMessage); this.userMessage = userMessage; this.name = 'ComextError'; }
 }
 
 const flowCode = (direction: TradeDirection) => direction === 'imports' ? '1' : '2';
