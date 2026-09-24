@@ -1,9 +1,14 @@
 import assert from 'node:assert/strict';
 import {aggregateRecords, buildBrokerageSignals, buildOriginEvolution, buildRolling12Comparison, buildSuppliers, isCountryPartner, marketShare, percentageChange, tradeUnitValue} from '../src/lib/trade/calculations.ts';
+import {REPORTER_MARKETS} from '../src/lib/trade/reporters.ts';
 
 assert.equal(tradeUnitValue(250, 100), 2.5);
 assert.equal(tradeUnitValue(250, 0), null);
 assert.equal(tradeUnitValue(250, null), null);
+assert.equal(aggregateRecords([
+  {partnerCode: 'ES', partnerName: 'Spain', time: '2025-01', quantityKg: 100, tradeValueEur: 200},
+  {partnerCode: 'ZA', partnerName: 'South Africa', time: '2025-01', quantityKg: null, tradeValueEur: 50},
+]).unitValueEurKg, null);
 assert.equal(percentageChange(120, 100), 20);
 assert.equal(percentageChange(80, 100), -20);
 assert.equal(percentageChange(100, 0), null);
@@ -14,6 +19,7 @@ assert.equal(isCountryPartner('ES'), true);
 assert.equal(isCountryPartner('WORLD'), false);
 assert.equal(isCountryPartner('EU'), false);
 assert.equal(isCountryPartner('QR'), false);
+assert.equal(REPORTER_MARKETS.find(market => market.name === 'Greece')?.code, 'EL');
 
 const months = Array.from({length: 24}, (_, i) => { const d = new Date(Date.UTC(2024, i, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`; });
 const records = [];
