@@ -19,6 +19,7 @@ assert.equal(isCountryPartner('ES'), true);
 assert.equal(isCountryPartner('WORLD'), false);
 assert.equal(isCountryPartner('EU'), false);
 assert.equal(isCountryPartner('QR'), false);
+assert.equal(isCountryPartner('ZY'), false);
 assert.equal(isCountryPartner('UKTI-1'), false);
 assert.equal(REPORTER_MARKETS.find(market => market.name === 'Greece')?.code, 'EL');
 
