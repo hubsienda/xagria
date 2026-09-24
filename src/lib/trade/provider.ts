@@ -3,6 +3,7 @@ import {COMEXT_DATASET, COMEXT_DATASET_LABEL, COMEXT_SOURCE_URL} from './config'
 import {fetchLatestAvailableMonth, fetchTradeRecords} from './comext';
 import {fetchHmrcLatestAvailableMonth, fetchHmrcTradeRecords, HMRC_DATASET, HMRC_DATASET_LABEL, HMRC_SOURCE_URL} from './hmrc';
 import {getProductMapping} from './products';
+import {TRADE_SOURCE_CONFIG} from './source-config';
 import type {ReporterMarket, TradeDirection, TradeProduct, TradeProviderResult} from './types';
 
 export async function fetchProviderTradeData(
@@ -26,8 +27,7 @@ export async function fetchProviderTradeData(
         dataset: HMRC_DATASET,
         datasetLabel: HMRC_DATASET_LABEL,
         sourceUrl: HMRC_SOURCE_URL,
-        currencyCode: 'GBP',
-        currencySymbol: '£',
+        ...TRADE_SOURCE_CONFIG.hmrc,
         codeLabel: mapping.codeLabel,
         productNote: mapping.note,
         methodology: [
@@ -52,8 +52,7 @@ export async function fetchProviderTradeData(
       dataset: COMEXT_DATASET,
       datasetLabel: COMEXT_DATASET_LABEL,
       sourceUrl: COMEXT_SOURCE_URL,
-      currencyCode: 'EUR',
-      currencySymbol: '€',
+      ...TRADE_SOURCE_CONFIG.eurostat,
       codeLabel: mapping.codeLabel,
       productNote: mapping.note,
       methodology: [
