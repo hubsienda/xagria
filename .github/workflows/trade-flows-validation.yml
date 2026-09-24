@@ -1,9 +1,9 @@
 name: Trade Flows validation
 
 on:
-  push:
+  pull_request:
     branches:
-      - feat/trade-flows-products-uk
+      - main
 
 jobs:
   validate:
