@@ -91,13 +91,13 @@ async function fetchOData<T>(path: string, params: URLSearchParams): Promise<ODa
   while (nextUrl) {
     pageCount += 1;
     if (pageCount > MAX_PAGES) throw new HmrcError('UK Trade Info returned an unexpectedly large response. Try a narrower query.');
-    const page = await fetchPage<T>(nextUrl);
+    const page: ODataResponse<T> = await fetchPage<T>(nextUrl);
     values.push(...(page.value ?? []));
-    const continuation = page['@odata.nextLink'];
+    const continuation: string | undefined = page['@odata.nextLink'];
     if (!continuation) {
       nextUrl = undefined;
     } else {
-      const resolved = new URL(continuation, HMRC_BASE_URL);
+      const resolved: URL = new URL(continuation, HMRC_BASE_URL);
       if (resolved.origin !== new URL(HMRC_BASE_URL).origin) throw new HmrcError('UK Trade Info returned an unexpected response. Try again shortly.');
       nextUrl = resolved.toString();
     }
