@@ -1,30 +1,42 @@
 export type TradeDirection = 'imports' | 'exports';
 export type PeriodPreset = 12 | 24 | 36;
+export type TradeProviderId = 'eurostat' | 'hmrc';
+export type CurrencyCode = 'EUR' | 'GBP';
+export type CommodityField = 'product' | 'Hs6Code' | 'Cn8Code';
+
+export interface ProductSourceMapping {
+  codes: string[];
+  codeLabel: string;
+  commodityField?: CommodityField;
+  scopeNote?: string;
+}
 
 export interface TradeProduct {
   id: string;
   name: string;
-  codes: string[];
-  codeLabel: string;
+  mappings: Partial<Record<TradeProviderId, ProductSourceMapping>>;
+  selectorNote?: string;
+  scopeNote?: string;
 }
 
 export interface ReporterMarket {
   code: string;
   name: string;
+  provider: TradeProviderId;
 }
 
 export interface TradeRecord {
   partnerCode: string;
   partnerName: string;
   time: string;
-  tradeValueEur: number | null;
+  tradeValue: number | null;
   quantityKg: number | null;
 }
 
 export interface TradeAggregate {
   quantityKg: number;
-  tradeValueEur: number;
-  unitValueEurKg: number | null;
+  tradeValue: number;
+  unitValuePerKg: number | null;
 }
 
 export interface ComparisonMetric {
@@ -69,13 +81,19 @@ export interface BrokerageSignal {
 }
 
 export interface TradeAnalysis {
+  provider: TradeProviderId;
+  sourceName: string;
   dataset: string;
   datasetLabel: string;
   sourceUrl: string;
+  currencyCode: CurrencyCode;
+  currencySymbol: '€' | '£';
   latestMonth: string;
   reporter: ReporterMarket;
   direction: TradeDirection;
   product: TradeProduct;
+  productCodeLabel: string;
+  productScopeNote?: string;
   periodMonths: PeriodPreset;
   summary: TradeAggregate;
   latestMonthComparison: ComparisonBlock | null;
