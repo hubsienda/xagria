@@ -6,9 +6,9 @@ assert.equal(tradeUnitValue(250, 100), 2.5);
 assert.equal(tradeUnitValue(250, 0), null);
 assert.equal(tradeUnitValue(250, null), null);
 assert.equal(aggregateRecords([
-  {partnerCode: 'ES', partnerName: 'Spain', time: '2025-01', quantityKg: 100, tradeValueEur: 200},
-  {partnerCode: 'ZA', partnerName: 'South Africa', time: '2025-01', quantityKg: null, tradeValueEur: 50},
-]).unitValueEurKg, null);
+  {partnerCode: 'ES', partnerName: 'Spain', time: '2025-01', quantityKg: 100, tradeValue: 200},
+  {partnerCode: 'ZA', partnerName: 'South Africa', time: '2025-01', quantityKg: null, tradeValue: 50},
+]).unitValuePerKg, null);
 assert.equal(percentageChange(120, 100), 20);
 assert.equal(percentageChange(80, 100), -20);
 assert.equal(percentageChange(100, 0), null);
@@ -19,15 +19,16 @@ assert.equal(isCountryPartner('ES'), true);
 assert.equal(isCountryPartner('WORLD'), false);
 assert.equal(isCountryPartner('EU'), false);
 assert.equal(isCountryPartner('QR'), false);
+assert.equal(isCountryPartner('UKTI-1'), false);
 assert.equal(REPORTER_MARKETS.find(market => market.name === 'Greece')?.code, 'EL');
 
 const months = Array.from({length: 24}, (_, i) => { const d = new Date(Date.UTC(2024, i, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`; });
 const records = [];
 for (const [i, month] of months.entries()) {
   const latest = i >= 12;
-  records.push({partnerCode: 'ES', partnerName: 'Spain', time: month, quantityKg: latest ? 1200 : 1000, tradeValueEur: latest ? 2400 : 1800});
-  records.push({partnerCode: 'ZA', partnerName: 'South Africa', time: month, quantityKg: latest ? 800 : 1000, tradeValueEur: latest ? 1600 : 1800});
-  records.push({partnerCode: 'WORLD', partnerName: 'All countries of the world', time: month, quantityKg: 2000, tradeValueEur: latest ? 4000 : 3600});
+  records.push({partnerCode: 'ES', partnerName: 'Spain', time: month, quantityKg: latest ? 1200 : 1000, tradeValue: latest ? 2400 : 1800});
+  records.push({partnerCode: 'ZA', partnerName: 'South Africa', time: month, quantityKg: latest ? 800 : 1000, tradeValue: latest ? 1600 : 1800});
+  records.push({partnerCode: 'WORLD', partnerName: 'All countries of the world', time: month, quantityKg: 2000, tradeValue: latest ? 4000 : 3600});
 }
 const countryRecords = records.filter(r => isCountryPartner(r.partnerCode));
 const rolling = buildRolling12Comparison(countryRecords, '2025-12');
