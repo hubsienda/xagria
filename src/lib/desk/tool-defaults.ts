@@ -1,18 +1,9 @@
+import {blankPriceSignalSelection, blankTradeFlowSelection} from './selection-transitions';
+
 export function priceSignalResetSelection() {
-  return {
-    marketCode: '',
-    productId: '',
-    variety: '',
-    stage: '' as const,
-    periodMonths: '' as const,
-  };
+  return blankPriceSignalSelection();
 }
 
 export function tradeFlowResetSelection() {
-  return {
-    productId: '',
-    reporterCode: '',
-    direction: '' as const,
-    periodMonths: '' as const,
-  };
+  return blankTradeFlowSelection();
 }
