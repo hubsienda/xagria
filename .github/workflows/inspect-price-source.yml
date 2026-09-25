@@ -1,0 +1,59 @@
+name: inspect-price-source
+on:
+  push:
+    branches:
+      - research/price-source-metadata-20260925
+  workflow_dispatch:
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect Commission fruit and vegetable price metadata
+        shell: python
+        run: |
+          import json
+          import urllib.parse
+          import urllib.request
+          from datetime import datetime, timedelta, timezone
+
+          base = 'https://api.tech.ec.europa.eu/agrifood/api/fruitAndVegetable/pricesSupplyChain'
+
+          def get(path, params=None):
+              url = base + path
+              if params:
+                  url += '?' + urllib.parse.urlencode(params)
+              req = urllib.request.Request(url, headers={'User-Agent': 'XAGRIA-metadata-verification/1.0'})
+              with urllib.request.urlopen(req, timeout=60) as response:
+                  return json.loads(response.read().decode('utf-8'))
+
+          products = get('/products')
+          varieties = get('/varieties')
+          stages = get('/productStages')
+          print('PRODUCTS_JSON=' + json.dumps(products, ensure_ascii=False))
+          print('STAGES_JSON=' + json.dumps(stages, ensure_ascii=False))
+
+          target_terms = ['artich', 'potato', 'tomato', 'grape', 'auberg', 'courget', 'melon', 'watermelon', 'pepper', 'capsicum', 'mandarin', 'clement', 'nectarin', 'peach', 'berry', 'berries', 'cherr', 'onion', 'lemon', 'lime', 'grapefruit', 'asparagus', 'avocado', 'lettuce', 'strawberr', 'pear', 'apple', 'cucumber', 'orange']
+          relevant_varieties = [v for v in varieties if any(term in v.lower() for term in target_terms)]
+          print('RELEVANT_VARIETIES_JSON=' + json.dumps(relevant_varieties, ensure_ascii=False))
+
+          end = datetime.now(timezone.utc).date()
+          begin = end - timedelta(days=190)
+          date = lambda d: d.strftime('%d/%m/%Y')
+
+          for market in ['ES', 'IT']:
+              rows = get('', {'memberStateCodes': market, 'beginDate': date(begin), 'endDate': date(end)})
+              combos = sorted({(r.get('variety',''), r.get('productStage','')) for r in rows if r.get('variety') and r.get('productStage')})
+              print(f'{market}_ROW_COUNT={len(rows)}')
+              print(f'{market}_COMBOS_JSON=' + json.dumps(combos, ensure_ascii=False))
+
+          for product in products:
+              if any(term in product.lower() for term in target_terms):
+                  try:
+                      rows = get('', {'memberStateCodes': 'ES', 'products': product, 'beginDate': date(begin), 'endDate': date(end)})
+                  except Exception as exc:
+                      print('ES_PRODUCT_ERROR=' + json.dumps({'product': product, 'error': str(exc)}, ensure_ascii=False))
+                      continue
+                  varieties_for_product = sorted({r.get('variety','') for r in rows if r.get('variety')})
+                  stages_for_product = sorted({r.get('productStage','') for r in rows if r.get('productStage')})
+                  print('ES_PRODUCT=' + json.dumps({'product': product, 'rows': len(rows), 'varieties': varieties_for_product, 'stages': stages_for_product}, ensure_ascii=False))
