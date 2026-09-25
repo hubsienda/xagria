@@ -44,7 +44,7 @@ assert(csv.includes('MONTHLY TREND\r\nMonth,Quantity kg,Quantity tonnes,Trade va
 assert(csv.includes('ORIGIN EVOLUTION'));
 assert(csv.includes('BROKERAGE SIGNALS\r\nSignal,Evidence'));
 assert(csv.includes('"Up 23.4%, with ""strong"" movement"'));
-assert(csv.includes('WORTH INVESTIGATING\r\n\'=SUM(1,1)'));
+assert(csv.includes('WORTH INVESTIGATING\r\n"\'=SUM(1,1)"'));
 assert(csv.includes('SOURCE INFORMATION'));
 assert(csv.includes('Dataset / API,OTS · Overseas Trade Statistics API'));
 assert(csv.includes('"Fresh table grapes, ""dessert"" category\nOfficial statistical scope"'));
