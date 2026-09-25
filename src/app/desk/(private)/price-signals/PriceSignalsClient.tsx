@@ -1,10 +1,12 @@
 'use client';
 
 import {useEffect, useRef, useState, type FormEvent} from 'react';
+import {priceSignalResetSelection} from '@/lib/desk/tool-defaults';
 import {priceAnalysisFilename, priceAnalysisToCsv} from '@/lib/prices/csv';
 import type {PriceAnalysis, PriceComparison, PriceMarket, PriceOptions, PricePeriod, PriceProductOption, PriceStage} from '@/lib/prices/types';
 
 type Props = {markets: PriceMarket[]};
+const defaults = priceSignalResetSelection();
 const decimal = new Intl.NumberFormat('en-GB', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 const pct = new Intl.NumberFormat('en-GB', {minimumFractionDigits: 1, maximumFractionDigits: 1, signDisplay: 'exceptZero'});
 const dateFmt = new Intl.DateTimeFormat('en-GB', {day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC'});
@@ -29,14 +31,15 @@ function firstSelection(product?: PriceProductOption) {
 }
 
 export default function PriceSignalsClient({markets}: Props) {
-  const [marketCode, setMarketCode] = useState('ES');
+  const [marketCode, setMarketCode] = useState(defaults.marketCode);
   const [options, setOptions] = useState<PriceOptions | null>(null);
-  const [sourceProduct, setSourceProduct] = useState('');
-  const [variety, setVariety] = useState('');
-  const [stage, setStage] = useState<PriceStage | ''>('');
-  const [periodMonths, setPeriodMonths] = useState<PricePeriod>(24);
+  const [sourceProduct, setSourceProduct] = useState(defaults.sourceProduct);
+  const [variety, setVariety] = useState(defaults.variety);
+  const [stage, setStage] = useState<PriceStage | ''>(defaults.stage);
+  const [periodMonths, setPeriodMonths] = useState<PricePeriod>(defaults.periodMonths);
   const [optionsLoading, setOptionsLoading] = useState(false);
   const [optionsError, setOptionsError] = useState('');
+  const [optionsReloadKey, setOptionsReloadKey] = useState(0);
   const [analysis, setAnalysis] = useState<PriceAnalysis | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState('');
@@ -69,10 +72,15 @@ export default function PriceSignalsClient({markets}: Props) {
     }
     load();
     return () => { cancelled = true; };
-  }, [marketCode]);
+  }, [marketCode, optionsReloadKey]);
 
   const selectedProduct = options?.products.find(product => product.sourceProduct === sourceProduct);
   const selectedVariety = selectedProduct?.varieties.find(item => item.value === variety);
+
+  function changeMarket(value: string) {
+    invalidateAnalysis();
+    setMarketCode(value);
+  }
 
   function changeProduct(value: string) {
     invalidateAnalysis();
@@ -88,6 +96,22 @@ export default function PriceSignalsClient({markets}: Props) {
     setStage(selected?.stages[0] ?? '');
   }
 
+  function clearAnalysis() {
+    analysisRequestId.current += 1;
+    setAnalysis(null);
+    setAnalysisError('');
+    setAnalysisLoading(false);
+    setOptionsError('');
+    setOptionsLoading(false);
+    setOptions(null);
+    setSourceProduct(defaults.sourceProduct);
+    setVariety(defaults.variety);
+    setStage(defaults.stage);
+    setPeriodMonths(defaults.periodMonths);
+    if (marketCode === defaults.marketCode) setOptionsReloadKey(value => value + 1);
+    else setMarketCode(defaults.marketCode);
+  }
+
   async function runAnalysis(event: FormEvent) {
     event.preventDefault();
     if (!sourceProduct || !variety || !stage) return;
@@ -101,7 +125,7 @@ export default function PriceSignalsClient({markets}: Props) {
       setAnalysis(payload.analysis);
     } catch (error) {
       if (requestId !== analysisRequestId.current) return;
-      setAnalysis(null); setAnalysisError(error instanceof Error ? error.message : 'Price analysis could not be loaded.');
+      setAnalysisError(error instanceof Error ? error.message : 'Price analysis could not be loaded.');
     } finally {
       if (requestId === analysisRequestId.current) setAnalysisLoading(false);
     }
@@ -123,7 +147,7 @@ export default function PriceSignalsClient({markets}: Props) {
     <form onSubmit={runAnalysis} className="rounded-xl border border-white/10 bg-surface p-5 sm:p-6">
       <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-5">
         <label className="text-sm font-semibold">Market
-          <select value={marketCode} onChange={event => setMarketCode(event.target.value)} className="mt-2 w-full rounded-lg border border-white/15 bg-black px-3 py-3 text-white outline-none focus:border-brand">
+          <select value={marketCode} onChange={event => changeMarket(event.target.value)} className="mt-2 w-full rounded-lg border border-white/15 bg-black px-3 py-3 text-white outline-none focus:border-brand">
             {markets.map(market => <option key={market.code} value={market.code}>{market.name}</option>)}
           </select>
         </label>
@@ -151,7 +175,10 @@ export default function PriceSignalsClient({markets}: Props) {
       {optionsLoading && <p className="mt-4 text-sm text-muted">Loading available products, varieties and stages…</p>}
       {optionsError && <p role="alert" className="mt-4 rounded-lg border border-red-400/30 bg-red-950/30 p-4 text-sm text-red-100">{optionsError}</p>}
       {options && !options.products.length && <p className="mt-4 text-sm text-muted">No supported price series is currently available for this market.</p>}
-      <button disabled={analysisLoading || optionsLoading || !sourceProduct || !variety || !stage} className="mt-6 rounded-lg bg-brand px-5 py-3 font-bold text-black disabled:cursor-wait disabled:opacity-50">{analysisLoading ? 'Analysing price data…' : 'Run analysis'}</button>
+      <div className="mt-6 flex flex-wrap gap-3">
+        <button disabled={analysisLoading || optionsLoading || !sourceProduct || !variety || !stage} className="rounded-lg bg-brand px-5 py-3 font-bold text-black disabled:cursor-wait disabled:opacity-50">{analysisLoading ? 'ANALYSING PRICE DATA…' : 'RUN ANALYSIS'}</button>
+        <button type="button" onClick={clearAnalysis} className="rounded-lg border border-white/25 px-5 py-3 font-bold text-white hover:border-brand">CLEAR</button>
+      </div>
       {analysisError && <p role="alert" className="mt-4 rounded-lg border border-red-400/30 bg-red-950/30 p-4 text-sm text-red-100">{analysisError}</p>}
     </form>
 

@@ -1,6 +1,6 @@
 import 'server-only';
-import {EU_PRICE_BASE_URL, EU_PRICE_SOURCE_NAME, EU_PRICE_SOURCE_URL, PRICE_REVALIDATE_SECONDS, PRICE_TIMEOUT_MS} from './config';
-import {PriceDataError} from './errors';
+import {EU_METADATA_REVALIDATE_SECONDS, EU_OPTIONS_AVAILABILITY_MONTHS, EU_PRICE_BASE_URL, EU_PRICE_SOURCE_NAME, EU_PRICE_SOURCE_URL, PRICE_REVALIDATE_SECONDS} from './config';
+import {fetchEuJson, type EuRequestPurpose} from './eu-request';
 import {priceProductIdentity, varietyLabel} from './products';
 import {inferCurrency, normaliseMassPrice, parseReportedPrice} from './units';
 import type {PriceMarket, PriceObservation, PriceOptions, PriceProductOption, PriceStage} from './types';
@@ -43,22 +43,14 @@ function monthsAgo(count: number) {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - count, now.getUTCDate()));
 }
 
-async function euFetch<T>(path: string, params?: URLSearchParams, allowEmpty = false): Promise<T> {
-  const url = `${EU_PRICE_BASE_URL}${path}${params ? `?${params.toString()}` : ''}`;
-  let response: Response;
-  try {
-    response = await fetch(url, {headers: {accept: 'application/json'}, next: {revalidate: PRICE_REVALIDATE_SECONDS}, signal: AbortSignal.timeout(PRICE_TIMEOUT_MS)});
-  } catch (error) {
-    throw new PriceDataError('European Commission price data are temporarily unavailable. Try again shortly.', error instanceof Error ? error.message : String(error));
-  }
-  if (response.status === 404 && allowEmpty) return [] as T;
-  if (!response.ok) throw new PriceDataError('European Commission price data are temporarily unavailable. Try again shortly.', `EU price API HTTP ${response.status}`);
-  try { return await response.json() as T; }
-  catch { throw new PriceDataError('European Commission price data returned an unexpected response. Try again shortly.'); }
-}
-
 async function euProducts() {
-  const products = await euFetch<string[]>('/api/fruitAndVegetable/pricesSupplyChain/products');
+  const path = '/api/fruitAndVegetable/pricesSupplyChain/products';
+  const products = await fetchEuJson<string[]>({
+    url: `${EU_PRICE_BASE_URL}${path}`,
+    context: {purpose: 'metadata', path},
+    revalidateSeconds: EU_METADATA_REVALIDATE_SECONDS,
+    expectArray: true,
+  });
   return products.slice().sort((a, b) => b.length - a.length);
 }
 
@@ -66,16 +58,31 @@ function sourceProductForVariety(variety: string, products: string[]) {
   return products.find(product => variety === product || variety.startsWith(`${product} - `)) ?? null;
 }
 
-async function euRows(marketCode: string, beginDate: Date, filters?: {product?: string; variety?: string; stage?: string}) {
+async function euRows(
+  marketCode: string,
+  beginDate: Date,
+  filters?: {product?: string; variety?: string; stage?: string},
+  purpose: EuRequestPurpose = 'analysis',
+) {
+  const path = '/api/fruitAndVegetable/pricesSupplyChain';
   const params = new URLSearchParams({memberStateCodes: marketCode, beginDate: ddmmyyyy(beginDate), endDate: ddmmyyyy(new Date())});
   if (filters?.product) params.set('products', filters.product);
   if (filters?.variety) params.set('varieties', filters.variety);
   if (filters?.stage) params.set('productStages', filters.stage);
-  return euFetch<EuRow[]>('/api/fruitAndVegetable/pricesSupplyChain', params, true);
+  return fetchEuJson<EuRow[]>({
+    url: `${EU_PRICE_BASE_URL}${path}?${params.toString()}`,
+    context: {purpose, path, marketCode, product: filters?.product, stage: filters?.stage},
+    revalidateSeconds: PRICE_REVALIDATE_SECONDS,
+    allowNotFoundEmpty: true,
+    expectArray: true,
+  });
 }
 
 export async function getEuPriceOptions(market: PriceMarket): Promise<PriceOptions> {
-  const [products, rows] = await Promise.all([euProducts(), euRows(market.code, monthsAgo(24))]);
+  const [products, rows] = await Promise.all([
+    euProducts(),
+    euRows(market.code, monthsAgo(EU_OPTIONS_AVAILABILITY_MONTHS), undefined, 'options'),
+  ]);
   type Group = {sourceProduct: string; id: string; name: string; varieties: Map<string, Set<PriceStage>>};
   const grouped = new Map<string, Group>();
   for (const row of rows) {
@@ -102,7 +109,7 @@ export async function getEuPriceObservations(input: {market: PriceMarket; source
   const sourceStage = Object.keys(STAGES).find(key => STAGES[key] === input.stage);
   if (!sourceStage || input.stage === 'Wholesale') throw new Error('INVALID_STAGE');
   const identity = priceProductIdentity(input.sourceProduct);
-  const rows = await euRows(input.market.code, monthsAgo(40), {product: input.sourceProduct, variety: input.variety, stage: sourceStage});
+  const rows = await euRows(input.market.code, monthsAgo(40), {product: input.sourceProduct, variety: input.variety, stage: sourceStage}, 'analysis');
   const observations: PriceObservation[] = [];
   for (const row of rows) {
     const startDate = isoFromEu(row.beginDate);

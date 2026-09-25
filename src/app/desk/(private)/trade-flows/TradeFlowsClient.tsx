@@ -1,10 +1,12 @@
 'use client';
 
-import {useState, type FormEvent} from 'react';
+import {useRef, useState, type FormEvent} from 'react';
+import {tradeFlowResetSelection} from '@/lib/desk/tool-defaults';
 import {tradeAnalysisFilename, tradeAnalysisToCsv} from '@/lib/trade/csv';
 import type {ComparisonBlock, ReporterMarket, TradeAnalysis, TradeProduct} from '@/lib/trade/types';
 
 type Props = {products: TradeProduct[]; reporters: ReporterMarket[]};
+const defaults = tradeFlowResetSelection();
 
 const number = new Intl.NumberFormat('en-GB', {maximumFractionDigits: 0});
 const decimal = new Intl.NumberFormat('en-GB', {minimumFractionDigits: 2, maximumFractionDigits: 2});
@@ -32,13 +34,14 @@ function ComparisonPanel({title, data}: {title: string; data: ComparisonBlock | 
 }
 
 export default function TradeFlowsClient({products, reporters}: Props) {
-  const [productId, setProductId] = useState('lemons-limes');
-  const [reporterCode, setReporterCode] = useState('DE');
-  const [direction, setDirection] = useState<'imports' | 'exports'>('imports');
-  const [periodMonths, setPeriodMonths] = useState<12 | 24 | 36>(36);
+  const [productId, setProductId] = useState(defaults.productId);
+  const [reporterCode, setReporterCode] = useState(defaults.reporterCode);
+  const [direction, setDirection] = useState<'imports' | 'exports'>(defaults.direction);
+  const [periodMonths, setPeriodMonths] = useState<12 | 24 | 36>(defaults.periodMonths);
   const [analysis, setAnalysis] = useState<TradeAnalysis | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const requestId = useRef(0);
 
   function downloadCsv() {
     if (!analysis) return;
@@ -53,8 +56,20 @@ export default function TradeFlowsClient({products, reporters}: Props) {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  function clearAnalysis() {
+    requestId.current += 1;
+    setAnalysis(null);
+    setError('');
+    setLoading(false);
+    setProductId(defaults.productId);
+    setReporterCode(defaults.reporterCode);
+    setDirection(defaults.direction);
+    setPeriodMonths(defaults.periodMonths);
+  }
+
   async function runAnalysis(event: FormEvent) {
     event.preventDefault();
+    const currentRequest = ++requestId.current;
     setLoading(true);
     setError('');
     try {
@@ -64,11 +79,15 @@ export default function TradeFlowsClient({products, reporters}: Props) {
       });
       const payload = await response.json() as {analysis?: TradeAnalysis; error?: string};
       if (!response.ok || !payload.analysis) throw new Error(payload.error || 'Trade data could not be loaded.');
+      if (currentRequest !== requestId.current) return;
       setAnalysis(payload.analysis);
     } catch (caught) {
+      if (currentRequest !== requestId.current) return;
       setAnalysis(null);
       setError(caught instanceof Error ? caught.message : 'Trade data could not be loaded.');
-    } finally { setLoading(false); }
+    } finally {
+      if (currentRequest === requestId.current) setLoading(false);
+    }
   }
 
   return <div className="mt-10 space-y-8">
@@ -95,7 +114,10 @@ export default function TradeFlowsClient({products, reporters}: Props) {
           </select>
         </label>
       </div>
-      <button disabled={loading} className="mt-6 rounded-lg bg-brand px-5 py-3 font-bold text-black disabled:cursor-wait disabled:opacity-60">{loading ? 'Analysing trade data…' : 'Run analysis'}</button>
+      <div className="mt-6 flex flex-wrap gap-3">
+        <button disabled={loading} className="rounded-lg bg-brand px-5 py-3 font-bold text-black disabled:cursor-wait disabled:opacity-60">{loading ? 'ANALYSING TRADE DATA…' : 'RUN ANALYSIS'}</button>
+        <button type="button" onClick={clearAnalysis} className="rounded-lg border border-white/25 px-5 py-3 font-bold text-white hover:border-brand">CLEAR</button>
+      </div>
       {error && <p role="alert" className="mt-4 rounded-lg border border-red-400/30 bg-red-950/30 p-4 text-sm text-red-100">{error}</p>}
     </form>
 

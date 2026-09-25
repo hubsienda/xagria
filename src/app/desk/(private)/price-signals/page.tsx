@@ -15,8 +15,8 @@ export default async function PriceSignalsPage() {
         <p className="mt-4 max-w-3xl text-lg text-muted">Track official fresh-produce price movements and identify changes worth investigating.</p>
       </div>
       <div className="flex flex-wrap gap-3">
-        <Link href="/desk" className="rounded-lg border border-white/20 px-4 py-2.5 text-sm hover:border-brand">Agricultural Intelligence Desk</Link>
-        <form action="/desk/logout" method="post"><button className="rounded-lg border border-white/20 px-4 py-2.5 text-sm hover:border-brand">Log out</button></form>
+        <Link href="/desk" className="rounded-lg border border-white/20 px-4 py-2.5 text-sm font-semibold hover:border-brand">← BACK TO DESK</Link>
+        <form action="/desk/logout" method="post"><button className="rounded-lg border border-white/20 px-4 py-2.5 text-sm font-semibold hover:border-brand">LOG OUT</button></form>
       </div>
     </div>
     <PriceSignalsClient markets={PRICE_MARKETS} />
