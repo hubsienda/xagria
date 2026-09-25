@@ -1,11 +1,12 @@
 import 'server-only';
 import {EU_METADATA_REVALIDATE_SECONDS, EU_OPTIONS_AVAILABILITY_MONTHS, EU_PRICE_BASE_URL, EU_PRICE_SOURCE_NAME, EU_PRICE_SOURCE_URL, PRICE_REVALIDATE_SECONDS} from './config';
+import {buildEuPriceOptions, EU_SOURCE_STAGE_MAP, sourceStageForPriceStage, type EuOptionRow} from './eu-options';
 import {fetchEuJson, type EuRequestPurpose} from './eu-request';
 import {priceProductIdentity, varietyLabel} from './products';
 import {inferCurrency, normaliseMassPrice, parseReportedPrice} from './units';
-import type {PriceMarket, PriceObservation, PriceOptions, PriceProductOption, PriceStage} from './types';
+import type {PriceMarket, PriceObservation, PriceOptions, PriceStage} from './types';
 
-interface EuRow {
+interface EuRow extends EuOptionRow {
   memberStateCode?: string;
   memberStateName?: string;
   beginDate?: string;
@@ -15,18 +16,10 @@ interface EuRow {
   periodType?: string;
   period?: number;
   year?: number;
-  variety?: string;
-  productStage?: string;
   market?: string;
   isCalculated?: string;
   isRegulated?: string;
 }
-
-const STAGES: Record<string, PriceStage> = {
-  'Farmgate price': 'Farmgate',
-  'Ex-packaging station price': 'Ex-packaging',
-  'Retail buying price': 'Retail',
-};
 
 function ddmmyyyy(date: Date) {
   return `${String(date.getUTCDate()).padStart(2, '0')}/${String(date.getUTCMonth() + 1).padStart(2, '0')}/${date.getUTCFullYear()}`;
@@ -43,19 +36,13 @@ function monthsAgo(count: number) {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - count, now.getUTCDate()));
 }
 
-async function euProducts() {
-  const path = '/api/fruitAndVegetable/pricesSupplyChain/products';
-  const products = await fetchEuJson<string[]>({
-    url: `${EU_PRICE_BASE_URL}${path}`,
-    context: {purpose: 'metadata', path},
+async function euReferenceValues(path: '/products' | '/varieties' | '/productStages') {
+  return fetchEuJson<string[]>({
+    url: `${EU_PRICE_BASE_URL}/api/fruitAndVegetable/pricesSupplyChain${path}`,
+    context: {purpose: 'metadata', path: `/api/fruitAndVegetable/pricesSupplyChain${path}`},
     revalidateSeconds: EU_METADATA_REVALIDATE_SECONDS,
     expectArray: true,
   });
-  return products.slice().sort((a, b) => b.length - a.length);
-}
-
-function sourceProductForVariety(variety: string, products: string[]) {
-  return products.find(product => variety === product || variety.startsWith(`${product} - `)) ?? null;
 }
 
 async function euRows(
@@ -79,34 +66,17 @@ async function euRows(
 }
 
 export async function getEuPriceOptions(market: PriceMarket): Promise<PriceOptions> {
-  const [products, rows] = await Promise.all([
-    euProducts(),
+  const [products, varieties, productStages, rows] = await Promise.all([
+    euReferenceValues('/products'),
+    euReferenceValues('/varieties'),
+    euReferenceValues('/productStages'),
     euRows(market.code, monthsAgo(EU_OPTIONS_AVAILABILITY_MONTHS), undefined, 'options'),
   ]);
-  type Group = {sourceProduct: string; id: string; name: string; varieties: Map<string, Set<PriceStage>>};
-  const grouped = new Map<string, Group>();
-  for (const row of rows) {
-    if (!row.variety || !row.productStage || !STAGES[row.productStage]) continue;
-    const sourceProduct = sourceProductForVariety(row.variety, products);
-    if (!sourceProduct) continue;
-    const identity = priceProductIdentity(sourceProduct);
-    const group = grouped.get(sourceProduct) ?? {sourceProduct, id: identity.id, name: identity.name, varieties: new Map<string, Set<PriceStage>>()};
-    const stages = group.varieties.get(row.variety) ?? new Set<PriceStage>();
-    stages.add(STAGES[row.productStage]);
-    group.varieties.set(row.variety, stages);
-    grouped.set(sourceProduct, group);
-  }
-  const productOptions: PriceProductOption[] = Array.from(grouped.values()).map(group => ({
-    id: group.id,
-    name: group.name,
-    sourceProduct: group.sourceProduct,
-    varieties: Array.from(group.varieties.entries()).map(([value, stages]) => ({value, label: varietyLabel(group.sourceProduct, value), stages: Array.from(stages).sort()})).sort((a, b) => a.label.localeCompare(b.label, 'en-GB')),
-  })).sort((a, b) => a.name.localeCompare(b.name, 'en-GB'));
-  return {market, sourceName: EU_PRICE_SOURCE_NAME, products: productOptions};
+  return buildEuPriceOptions({market, sourceName: EU_PRICE_SOURCE_NAME, products, varieties, productStages, rows});
 }
 
 export async function getEuPriceObservations(input: {market: PriceMarket; sourceProduct: string; variety: string; stage: PriceStage}) {
-  const sourceStage = Object.keys(STAGES).find(key => STAGES[key] === input.stage);
+  const sourceStage = sourceStageForPriceStage(input.stage);
   if (!sourceStage || input.stage === 'Wholesale') throw new Error('INVALID_STAGE');
   const identity = priceProductIdentity(input.sourceProduct);
   const rows = await euRows(input.market.code, monthsAgo(40), {product: input.sourceProduct, variety: input.variety, stage: sourceStage}, 'analysis');
@@ -115,7 +85,7 @@ export async function getEuPriceObservations(input: {market: PriceMarket; source
     const startDate = isoFromEu(row.beginDate);
     const endDate = isoFromEu(row.endDate ?? row.beginDate);
     const rawPrice = parseReportedPrice(row.price ?? '');
-    if (!startDate || rawPrice == null || !row.unit || !row.variety || !row.productStage || STAGES[row.productStage] !== input.stage) continue;
+    if (!startDate || rawPrice == null || !row.unit || !row.variety || !row.productStage || EU_SOURCE_STAGE_MAP[row.productStage] !== input.stage) continue;
     const currency = inferCurrency(row.price ?? '', row.unit, 'EUR');
     const normalised = normaliseMassPrice(rawPrice, currency, row.unit);
     observations.push({
