@@ -1,7 +1,7 @@
 import 'server-only';
 import {DEFRA_PAGE_URL, DEFRA_SOURCE_NAME, PRICE_REVALIDATE_SECONDS, PRICE_TIMEOUT_MS} from './config';
 import {PriceDataError} from './errors';
-import {priceProductIdentity, varietyLabel} from './products';
+import {priceProductIdentity, sourceAwareVarietyLabel, varietyLabel} from './products';
 import {normaliseMassPrice, parseReportedPrice} from './units';
 import type {PriceMarket, PriceObservation, PriceOptions, PriceProductOption} from './types';
 
@@ -62,18 +62,29 @@ async function defraRows() {
 
 export async function getDefraPriceOptions(market: PriceMarket): Promise<PriceOptions> {
   const {rows} = await defraRows();
-  type Group = {id: string; name: string; sourceProduct: string; varieties: Map<string, string>};
+  type VarietyGroup = {sourceProduct: string; value: string};
+  type Group = {id: string; name: string; sourceProducts: Set<string>; varieties: Map<string, VarietyGroup>};
   const groups = new Map<string, Group>();
   for (const row of rows) {
     const identity = priceProductIdentity(row.item);
-    const group = groups.get(row.item) ?? {id: identity.id, name: identity.name, sourceProduct: row.item, varieties: new Map<string, string>()};
-    group.varieties.set(row.variety, varietyLabel(row.item, row.variety));
-    groups.set(row.item, group);
+    const group = groups.get(identity.id) ?? {id: identity.id, name: identity.name, sourceProducts: new Set<string>(), varieties: new Map<string, VarietyGroup>()};
+    group.sourceProducts.add(row.item);
+    group.varieties.set(`${row.item}\u0000${row.variety}`, {sourceProduct: row.item, value: row.variety});
+    groups.set(identity.id, group);
   }
-  const products: PriceProductOption[] = Array.from(groups.values()).map(group => ({
-    id: group.id, name: group.name, sourceProduct: group.sourceProduct,
-    varieties: Array.from(group.varieties.entries()).map(([value, label]) => ({value, label, stages: ['Wholesale' as const]})).sort((a, b) => a.label.localeCompare(b.label, 'en-GB')),
-  })).sort((a, b) => a.name.localeCompare(b.name, 'en-GB'));
+  const products: PriceProductOption[] = Array.from(groups.values()).map(group => {
+    const sourceProducts = Array.from(group.sourceProducts).sort((a, b) => a.localeCompare(b, 'en-GB'));
+    const qualifySource = sourceProducts.length > 1;
+    return {
+      id: group.id, name: group.name, sourceProducts,
+      varieties: Array.from(group.varieties.values()).map(item => ({
+        value: item.value,
+        sourceProduct: item.sourceProduct,
+        label: sourceAwareVarietyLabel(item.sourceProduct, item.value, qualifySource),
+        stages: ['Wholesale' as const],
+      })).sort((a, b) => a.label.localeCompare(b.label, 'en-GB')),
+    };
+  }).sort((a, b) => a.name.localeCompare(b.name, 'en-GB'));
   return {market, sourceName: DEFRA_SOURCE_NAME, products, scopeNote: 'Selected home-grown horticultural produce in England and Wales.'};
 }
 
