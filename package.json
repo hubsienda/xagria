@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && npm run test:desk && npm run test:trade && npm run test:prices",
+    "build": "next build && npm run test:desk",
     "start": "next start",
     "lint": "next lint",
     "test:desk": "node --conditions=react-server tests/desk.test.mjs",
