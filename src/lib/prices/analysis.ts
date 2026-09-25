@@ -2,8 +2,9 @@ import 'server-only';
 import {DEFRA_PRICE_METHODOLOGY, DEFRA_SCOPE_NOTE} from './defra';
 import {EU_PRICE_METHODOLOGY} from './eu';
 import {getPriceMarket} from './markets';
-import {buildPriceSignals, buildWorthInvestigating, observationPrice, previousObservationComparison, range12MonthContext, recentFourAverageComparison, seasonalComparison, sortObservations, yearOnYearComparison} from './calculations';
+import {buildPriceSignals, buildWorthInvestigating, observationPrice, previousObservationComparison, range12MonthContext, recentFourAverageComparison, seasonalComparison, yearOnYearComparison} from './calculations';
 import {getPriceObservations} from './providers';
+import {comparableSeriesForLatest} from './series';
 import type {PriceAnalysis, PriceObservation, PricePeriod, PriceStage} from './types';
 
 const VALID_PERIODS = new Set<number>([12, 24, 36]);
@@ -15,16 +16,6 @@ function monthsBefore(iso: string, count: number) {
   return date.toISOString().slice(0, 10);
 }
 
-function sameComparableBasis(observations: PriceObservation[]) {
-  const ordered = sortObservations(observations);
-  const latest = ordered[ordered.length - 1];
-  if (!latest) return [];
-  if (latest.normalisedPrice != null && latest.normalisedUnit) {
-    return ordered.filter(row => row.normalisedPrice != null && row.normalisedUnit === latest.normalisedUnit && row.rawCurrency === latest.rawCurrency);
-  }
-  return ordered.filter(row => row.normalisedPrice == null && row.rawUnit === latest.rawUnit && row.rawCurrency === latest.rawCurrency);
-}
-
 export async function analysePriceSignals(input: {marketCode: string; sourceProduct: string; variety: string; stage: PriceStage; periodMonths: number}): Promise<PriceAnalysis> {
   const market = getPriceMarket(input.marketCode);
   if (!market) throw new Error('INVALID_MARKET');
@@ -32,7 +23,7 @@ export async function analysePriceSignals(input: {marketCode: string; sourceProd
   if (!VALID_PERIODS.has(input.periodMonths)) throw new Error('INVALID_PERIOD');
   const periodMonths = input.periodMonths as PricePeriod;
   const fetched = await getPriceObservations({marketCode: market.code, sourceProduct: input.sourceProduct, variety: input.variety, stage: input.stage, periodMonths});
-  const observations = sameComparableBasis(fetched);
+  const observations = comparableSeriesForLatest(fetched);
   if (!observations.length) throw new Error('NO_RESULTS');
   const latest = observations[observations.length - 1];
   const cutoff = monthsBefore(latest.startDate, periodMonths);
@@ -43,17 +34,13 @@ export async function analysePriceSignals(input: {marketCode: string; sourceProd
   const recentAverage = recentFourAverageComparison(observations);
   const range12 = range12MonthContext(observations);
   const seasonal = seasonalComparison(observations);
-  const signals = buildPriceSignals({
-    productName: latest.productName, marketName: latest.marketName, stage: latest.stage,
-    previous: previousComparison, yearOnYear, recentAverage, range12, seasonal,
-  });
-  const methodology = latest.provider === 'defra' ? DEFRA_PRICE_METHODOLOGY : EU_PRICE_METHODOLOGY;
+  const signals = buildPriceSignals({productName: latest.productName, marketName: latest.marketName, stage: latest.stage, previous: previousComparison, yearOnYear, recentAverage, range12, seasonal});
   return {
     provider: latest.provider,
     sourceName: latest.sourceName,
     sourceUrl: latest.sourceUrl,
     scopeNote: latest.provider === 'defra' ? DEFRA_SCOPE_NOTE : undefined,
-    methodology,
+    methodology: latest.provider === 'defra' ? DEFRA_PRICE_METHODOLOGY : EU_PRICE_METHODOLOGY,
     market,
     productId: latest.productId,
     productName: latest.productName,
