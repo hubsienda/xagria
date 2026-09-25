@@ -1,9 +1,10 @@
 'use client';
 
 import {useEffect, useRef, useState, type FormEvent} from 'react';
+import DeskSelect from '@/components/desk/DeskSelect';
 import {priceSignalResetSelection} from '@/lib/desk/tool-defaults';
 import {priceAnalysisFilename, priceAnalysisToCsv} from '@/lib/prices/csv';
-import type {PriceAnalysis, PriceComparison, PriceMarket, PriceOptions, PricePeriod, PriceProductOption, PriceStage} from '@/lib/prices/types';
+import type {PriceAnalysis, PriceComparison, PriceMarket, PriceOptions, PricePeriod, PriceStage} from '@/lib/prices/types';
 
 type Props = {markets: PriceMarket[]};
 const defaults = priceSignalResetSelection();
@@ -25,24 +26,19 @@ function ComparisonCard({title, data, unit, referenceLabel}: {title: string; dat
   </section>;
 }
 
-function firstSelection(product?: PriceProductOption) {
-  const variety = product?.varieties[0];
-  return {sourceProduct: product?.sourceProduct ?? '', variety: variety?.value ?? '', stage: variety?.stages[0] ?? ''};
-}
-
 export default function PriceSignalsClient({markets}: Props) {
   const [marketCode, setMarketCode] = useState(defaults.marketCode);
   const [options, setOptions] = useState<PriceOptions | null>(null);
-  const [sourceProduct, setSourceProduct] = useState(defaults.sourceProduct);
+  const [productId, setProductId] = useState(defaults.productId);
   const [variety, setVariety] = useState(defaults.variety);
   const [stage, setStage] = useState<PriceStage | ''>(defaults.stage);
-  const [periodMonths, setPeriodMonths] = useState<PricePeriod>(defaults.periodMonths);
+  const [periodMonths, setPeriodMonths] = useState<PricePeriod | ''>(defaults.periodMonths);
   const [optionsLoading, setOptionsLoading] = useState(false);
   const [optionsError, setOptionsError] = useState('');
-  const [optionsReloadKey, setOptionsReloadKey] = useState(0);
   const [analysis, setAnalysis] = useState<PriceAnalysis | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState('');
+  const optionsRequestId = useRef(0);
   const analysisRequestId = useRef(0);
 
   function invalidateAnalysis() {
@@ -53,72 +49,90 @@ export default function PriceSignalsClient({markets}: Props) {
   }
 
   useEffect(() => {
-    let cancelled = false;
+    if (!marketCode) {
+      optionsRequestId.current += 1;
+      setOptions(null);
+      setOptionsLoading(false);
+      setOptionsError('');
+      return;
+    }
+    const requestId = ++optionsRequestId.current;
     analysisRequestId.current += 1;
-    setAnalysis(null); setAnalysisLoading(false); setAnalysisError('');
+    setAnalysis(null);
+    setAnalysisLoading(false);
+    setAnalysisError('');
+    setOptionsLoading(true);
+    setOptionsError('');
+    setOptions(null);
+
     async function load() {
-      setOptionsLoading(true); setOptionsError(''); setOptions(null);
       try {
         const response = await fetch('/desk/api/price-signals', {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({mode: 'options', marketCode})});
         const payload = await response.json() as {options?: PriceOptions; error?: string};
         if (!response.ok || !payload.options) throw new Error(payload.error || 'Price options could not be loaded.');
-        if (cancelled) return;
+        if (requestId !== optionsRequestId.current) return;
         setOptions(payload.options);
-        const selection = firstSelection(payload.options.products[0]);
-        setSourceProduct(selection.sourceProduct); setVariety(selection.variety); setStage(selection.stage as PriceStage | '');
       } catch (error) {
-        if (!cancelled) setOptionsError(error instanceof Error ? error.message : 'Price options could not be loaded.');
-      } finally { if (!cancelled) setOptionsLoading(false); }
+        if (requestId === optionsRequestId.current) setOptionsError(error instanceof Error ? error.message : 'Price options could not be loaded.');
+      } finally {
+        if (requestId === optionsRequestId.current) setOptionsLoading(false);
+      }
     }
-    load();
-    return () => { cancelled = true; };
-  }, [marketCode, optionsReloadKey]);
+    void load();
+  }, [marketCode]);
 
-  const selectedProduct = options?.products.find(product => product.sourceProduct === sourceProduct);
+  const selectedProduct = options?.products.find(product => product.id === productId);
   const selectedVariety = selectedProduct?.varieties.find(item => item.value === variety);
 
   function changeMarket(value: string) {
+    optionsRequestId.current += 1;
     invalidateAnalysis();
+    setProductId('');
+    setVariety('');
+    setStage('');
+    setOptions(null);
+    setOptionsError('');
+    setOptionsLoading(false);
     setMarketCode(value);
   }
 
   function changeProduct(value: string) {
     invalidateAnalysis();
-    setSourceProduct(value);
-    const selection = firstSelection(options?.products.find(product => product.sourceProduct === value));
-    setVariety(selection.variety); setStage(selection.stage as PriceStage | '');
+    setProductId(value);
+    setVariety('');
+    setStage('');
   }
 
   function changeVariety(value: string) {
     invalidateAnalysis();
     setVariety(value);
-    const selected = selectedProduct?.varieties.find(item => item.value === value);
-    setStage(selected?.stages[0] ?? '');
+    setStage('');
   }
 
   function clearAnalysis() {
+    optionsRequestId.current += 1;
     analysisRequestId.current += 1;
+    setMarketCode('');
+    setProductId('');
+    setVariety('');
+    setStage('');
+    setPeriodMonths('');
+    setOptions(null);
+    setOptionsError('');
+    setOptionsLoading(false);
     setAnalysis(null);
     setAnalysisError('');
     setAnalysisLoading(false);
-    setOptionsError('');
-    setOptionsLoading(false);
-    setOptions(null);
-    setSourceProduct(defaults.sourceProduct);
-    setVariety(defaults.variety);
-    setStage(defaults.stage);
-    setPeriodMonths(defaults.periodMonths);
-    if (marketCode === defaults.marketCode) setOptionsReloadKey(value => value + 1);
-    else setMarketCode(defaults.marketCode);
   }
 
   async function runAnalysis(event: FormEvent) {
     event.preventDefault();
-    if (!sourceProduct || !variety || !stage) return;
+    if (!marketCode || !selectedProduct || !selectedVariety || !stage || !periodMonths) return;
     const requestId = ++analysisRequestId.current;
-    setAnalysisLoading(true); setAnalysisError('');
+    setAnalysisLoading(true);
+    setAnalysisError('');
     try {
-      const response = await fetch('/desk/api/price-signals', {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({mode: 'analyse', marketCode, sourceProduct, variety, stage, periodMonths})});
+      const response = await fetch('/desk/api/price-signals', {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({mode: 'analyse', marketCode, sourceProduct: selectedVariety.sourceProduct, variety, stage, periodMonths})});
       const payload = await response.json() as {analysis?: PriceAnalysis; error?: string};
       if (!response.ok || !payload.analysis) throw new Error(payload.error || 'Price analysis could not be loaded.');
       if (requestId !== analysisRequestId.current) return;
@@ -142,41 +156,23 @@ export default function PriceSignalsClient({markets}: Props) {
 
   const basisUnit = analysis?.latest.normalisedUnit ?? analysis?.latest.rawUnit ?? '';
   const latestBasisPrice = analysis ? (analysis.latest.normalisedPrice ?? analysis.latest.rawPrice) : null;
+  const canRun = Boolean(marketCode && productId && variety && stage && periodMonths && selectedVariety) && !optionsLoading && !analysisLoading;
 
   return <div className="mt-10 space-y-8">
     <form onSubmit={runAnalysis} className="rounded-xl border border-white/10 bg-surface p-5 sm:p-6">
       <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-5">
-        <label className="text-sm font-semibold">Market
-          <select value={marketCode} onChange={event => changeMarket(event.target.value)} className="mt-2 w-full rounded-lg border border-white/15 bg-black px-3 py-3 text-white outline-none focus:border-brand">
-            {markets.map(market => <option key={market.code} value={market.code}>{market.name}</option>)}
-          </select>
-        </label>
-        <label className="text-sm font-semibold">Product
-          <select disabled={optionsLoading || !options?.products.length} value={sourceProduct} onChange={event => changeProduct(event.target.value)} className="mt-2 w-full rounded-lg border border-white/15 bg-black px-3 py-3 text-white outline-none focus:border-brand disabled:opacity-50">
-            {options?.products.map(product => <option key={product.sourceProduct} value={product.sourceProduct}>{product.name}</option>)}
-          </select>
-        </label>
-        <label className="text-sm font-semibold">Variety
-          <select disabled={!selectedProduct} value={variety} onChange={event => changeVariety(event.target.value)} className="mt-2 w-full rounded-lg border border-white/15 bg-black px-3 py-3 text-white outline-none focus:border-brand disabled:opacity-50">
-            {selectedProduct?.varieties.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
-          </select>
-        </label>
-        <label className="text-sm font-semibold">Price stage
-          <select disabled={!selectedVariety} value={stage} onChange={event => {invalidateAnalysis(); setStage(event.target.value as PriceStage);}} className="mt-2 w-full rounded-lg border border-white/15 bg-black px-3 py-3 text-white outline-none focus:border-brand disabled:opacity-50">
-            {selectedVariety?.stages.map(value => <option key={value} value={value}>{value}</option>)}
-          </select>
-        </label>
-        <label className="text-sm font-semibold">Period
-          <select value={periodMonths} onChange={event => {invalidateAnalysis(); setPeriodMonths(Number(event.target.value) as PricePeriod);}} className="mt-2 w-full rounded-lg border border-white/15 bg-black px-3 py-3 text-white outline-none focus:border-brand">
-            <option value={12}>Last 12 months</option><option value={24}>Last 24 months</option><option value={36}>Last 36 months</option>
-          </select>
-        </label>
+        <DeskSelect id="price-market" label="Market" value={marketCode} placeholder="Select market…" searchable options={markets.map(market => ({value: market.code, label: market.name}))} onChange={changeMarket} />
+        <DeskSelect id="price-product" label="Product" value={productId} placeholder="Select product…" searchable disabled={!marketCode || optionsLoading || !options?.products.length} loadingText={optionsLoading ? 'Loading products…' : undefined} options={options?.products.map(product => ({value: product.id, label: product.name})) ?? []} onChange={changeProduct} />
+        <DeskSelect id="price-variety" label="Variety" value={variety} placeholder="Select variety…" disabled={!selectedProduct} options={selectedProduct?.varieties.map(item => ({value: item.value, label: item.label})) ?? []} onChange={changeVariety} />
+        <DeskSelect id="price-stage" label="Price stage" value={stage} placeholder="Select price stage…" disabled={!selectedVariety} options={selectedVariety?.stages.map(value => ({value, label: value})) ?? []} onChange={value => {invalidateAnalysis(); setStage(value as PriceStage);}} />
+        <DeskSelect id="price-period" label="Period" value={periodMonths ? String(periodMonths) : ''} placeholder="Select period…" options={[{value: '12', label: 'Last 12 months'}, {value: '24', label: 'Last 24 months'}, {value: '36', label: 'Last 36 months'}]} onChange={value => {invalidateAnalysis(); setPeriodMonths(value ? Number(value) as PricePeriod : '');}} />
       </div>
       {optionsLoading && <p className="mt-4 text-sm text-muted">Loading available products, varieties and stages…</p>}
       {optionsError && <p role="alert" className="mt-4 rounded-lg border border-red-400/30 bg-red-950/30 p-4 text-sm text-red-100">{optionsError}</p>}
       {options && !options.products.length && <p className="mt-4 text-sm text-muted">No supported price series is currently available for this market.</p>}
+      {selectedVariety?.stages.length === 1 && <p className="mt-4 text-sm text-muted">Only {selectedVariety.stages[0]} data are currently available for this product and variety.</p>}
       <div className="mt-6 flex flex-wrap gap-3">
-        <button disabled={analysisLoading || optionsLoading || !sourceProduct || !variety || !stage} className="rounded-lg bg-brand px-5 py-3 font-bold text-black disabled:cursor-wait disabled:opacity-50">{analysisLoading ? 'ANALYSING PRICE DATA…' : 'RUN ANALYSIS'}</button>
+        <button disabled={!canRun} className="rounded-lg bg-brand px-5 py-3 font-bold text-black disabled:cursor-not-allowed disabled:opacity-50">{analysisLoading ? 'ANALYSING PRICE DATA…' : 'RUN ANALYSIS'}</button>
         <button type="button" onClick={clearAnalysis} className="rounded-lg border border-white/25 px-5 py-3 font-bold text-white hover:border-brand">CLEAR</button>
       </div>
       {analysisError && <p role="alert" className="mt-4 rounded-lg border border-red-400/30 bg-red-950/30 p-4 text-sm text-red-100">{analysisError}</p>}
@@ -210,7 +206,7 @@ export default function PriceSignalsClient({markets}: Props) {
 
       <section className="rounded-xl border border-brand/30 bg-surface p-5 sm:p-6"><h2 className="text-xl font-bold">Price Signals</h2><div className="mt-5 grid gap-4 md:grid-cols-2">{analysis.signals.map((signal, index) => <article key={`${signal.title}-${index}`} className="rounded-lg border border-white/10 bg-black/30 p-4"><h3 className="font-bold text-brand">{signal.title}</h3><p className="mt-2 text-sm text-muted">{signal.evidence}</p></article>)}</div><div className="mt-6 border-t border-white/10 pt-5"><h3 className="font-bold">Worth investigating</h3><p className="mt-2 text-sm text-muted">{analysis.worthInvestigating}</p></div></section>
 
-      <section className="rounded-xl border border-white/10 p-5 text-sm text-muted sm:p-6"><h2 className="font-bold text-white">Source and methodology</h2><dl className="mt-4 grid gap-2 sm:grid-cols-2"><div><dt className="font-semibold text-white">Source</dt><dd>{analysis.sourceName}</dd></div><div><dt className="font-semibold text-white">Market</dt><dd>{analysis.market.name}</dd></div><div><dt className="font-semibold text-white">Product / variety</dt><dd>{analysis.productName} · {analysis.variety}</dd></div><div><dt className="font-semibold text-white">Stage</dt><dd>{analysis.stage}</dd></div><div><dt className="font-semibold text-white">Latest reporting date</dt><dd>{formatDate(analysis.latest.startDate)}</dd></div><div><dt className="font-semibold text-white">Currency / unit</dt><dd>{analysis.currency} · {analysis.rawUnit}</dd></div></dl>{analysis.scopeNote && <p className="mt-4 rounded-lg border border-brand/20 p-3"><span className="font-semibold text-white">Scope:</span> {analysis.scopeNote}</p>}<p className="mt-4"><a href={analysis.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-brand underline underline-offset-4">Official source</a></p><details className="mt-5 border-t border-white/10 pt-4"><summary className="cursor-pointer font-semibold text-white">Methodology note</summary><div className="mt-3 space-y-2">{analysis.methodology.map((note, index) => <p key={index}>{note}</p>)}</div></details></section>
+      <section className="rounded-xl border border-white/10 p-5 text-sm text-muted sm:p-6"><h2 className="font-bold text-white">Source and methodology</h2><dl className="mt-4 grid gap-2 sm:grid-cols-2"><div><dt className="font-semibold text-white">Source</dt><dd>{analysis.sourceName}</dd></div><div><dt className="font-semibold text-white">Market</dt><dd>{analysis.market.name}</dd></div><div><dt className="font-semibold text-white">Product / variety</dt><dd>{analysis.productName} · {analysis.variety}</dd></div><div><dt className="font-semibold text-white">Source product</dt><dd>{analysis.sourceProduct}</dd></div><div><dt className="font-semibold text-white">Stage</dt><dd>{analysis.stage}</dd></div><div><dt className="font-semibold text-white">Latest reporting date</dt><dd>{formatDate(analysis.latest.startDate)}</dd></div><div><dt className="font-semibold text-white">Currency / unit</dt><dd>{analysis.currency} · {analysis.rawUnit}</dd></div></dl>{analysis.scopeNote && <p className="mt-4 rounded-lg border border-brand/20 p-3"><span className="font-semibold text-white">Scope:</span> {analysis.scopeNote}</p>}<p className="mt-4"><a href={analysis.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-brand underline underline-offset-4">Official source</a></p><details className="mt-5 border-t border-white/10 pt-4"><summary className="cursor-pointer font-semibold text-white">Methodology note</summary><div className="mt-3 space-y-2">{analysis.methodology.map((note, index) => <p key={index}>{note}</p>)}</div></details></section>
     </>}
   </div>;
 }

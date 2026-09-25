@@ -34,13 +34,14 @@ export interface PriceObservation {
 export interface PriceVarietyOption {
   value: string;
   label: string;
+  sourceProduct: string;
   stages: PriceStage[];
 }
 
 export interface PriceProductOption {
   id: string;
   name: string;
-  sourceProduct: string;
+  sourceProducts: string[];
   varieties: PriceVarietyOption[];
 }
 
