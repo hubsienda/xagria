@@ -1,0 +1,47 @@
+name: inspect-price-source
+on:
+  push:
+    branches:
+      - research/price-source-metadata-20260925
+  workflow_dispatch:
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compare Ware potatoes Commission filters
+        shell: python
+        run: |
+          import json
+          import urllib.parse
+          import urllib.request
+          import urllib.error
+          from datetime import datetime, timedelta, timezone
+
+          base = 'https://api.tech.ec.europa.eu/agrifood/api/fruitAndVegetable/pricesSupplyChain'
+          product = 'Ware potatoes, size that do not pass a square mesh of 35 mm x 35 mm but can pass a square mesh of 75 mm x 75 mm, in packages below 10 kg'
+          variety = product + ' - All types and varieties'
+          stage = 'Ex-packaging station price'
+          end = datetime.now(timezone.utc).date()
+          begin = end - timedelta(days=40*31)
+          date = lambda d: d.strftime('%d/%m/%Y')
+
+          def get(label, params):
+              url = base + '?' + urllib.parse.urlencode(params)
+              req = urllib.request.Request(url, headers={'User-Agent': 'XAGRIA-potato-filter-verification/1.0'})
+              try:
+                  with urllib.request.urlopen(req, timeout=60) as response:
+                      rows = json.loads(response.read().decode('utf-8'))
+                      print(label + '_STATUS=' + str(response.status))
+                      print(label + '_COUNT=' + str(len(rows)))
+                      if rows:
+                          print(label + '_FIRST=' + json.dumps(rows[0], ensure_ascii=False))
+              except urllib.error.HTTPError as exc:
+                  print(label + '_STATUS=' + str(exc.code))
+                  print(label + '_BODY=' + exc.read().decode('utf-8', errors='replace')[:500])
+
+          common = {'memberStateCodes': 'ES', 'beginDate': date(begin), 'endDate': date(end)}
+          get('PRODUCT_VARIETY_STAGE', {**common, 'products': product, 'varieties': variety, 'productStages': stage})
+          get('VARIETY_STAGE', {**common, 'varieties': variety, 'productStages': stage})
+          get('PRODUCT_STAGE', {**common, 'products': product, 'productStages': stage})
+          get('VARIETY_ONLY', {**common, 'varieties': variety})
