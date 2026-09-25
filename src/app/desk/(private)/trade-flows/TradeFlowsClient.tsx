@@ -1,6 +1,7 @@
 'use client';
 
 import {useRef, useState, type FormEvent} from 'react';
+import DeskSelect from '@/components/desk/DeskSelect';
 import {tradeFlowResetSelection} from '@/lib/desk/tool-defaults';
 import {tradeAnalysisFilename, tradeAnalysisToCsv} from '@/lib/trade/csv';
 import type {ComparisonBlock, ReporterMarket, TradeAnalysis, TradeProduct} from '@/lib/trade/types';
@@ -36,12 +37,19 @@ function ComparisonPanel({title, data}: {title: string; data: ComparisonBlock | 
 export default function TradeFlowsClient({products, reporters}: Props) {
   const [productId, setProductId] = useState(defaults.productId);
   const [reporterCode, setReporterCode] = useState(defaults.reporterCode);
-  const [direction, setDirection] = useState<'imports' | 'exports'>(defaults.direction);
-  const [periodMonths, setPeriodMonths] = useState<12 | 24 | 36>(defaults.periodMonths);
+  const [direction, setDirection] = useState<'imports' | 'exports' | ''>(defaults.direction);
+  const [periodMonths, setPeriodMonths] = useState<12 | 24 | 36 | ''>(defaults.periodMonths);
   const [analysis, setAnalysis] = useState<TradeAnalysis | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const requestId = useRef(0);
+
+  function invalidateAnalysis() {
+    requestId.current += 1;
+    setAnalysis(null);
+    setError('');
+    setLoading(false);
+  }
 
   function downloadCsv() {
     if (!analysis) return;
@@ -61,14 +69,15 @@ export default function TradeFlowsClient({products, reporters}: Props) {
     setAnalysis(null);
     setError('');
     setLoading(false);
-    setProductId(defaults.productId);
-    setReporterCode(defaults.reporterCode);
-    setDirection(defaults.direction);
-    setPeriodMonths(defaults.periodMonths);
+    setProductId('');
+    setReporterCode('');
+    setDirection('');
+    setPeriodMonths('');
   }
 
   async function runAnalysis(event: FormEvent) {
     event.preventDefault();
+    if (!productId || !reporterCode || !direction || !periodMonths) return;
     const currentRequest = ++requestId.current;
     setLoading(true);
     setError('');
@@ -90,32 +99,18 @@ export default function TradeFlowsClient({products, reporters}: Props) {
     }
   }
 
+  const canRun = Boolean(productId && reporterCode && direction && periodMonths) && !loading;
+
   return <div className="mt-10 space-y-8">
     <form onSubmit={runAnalysis} className="rounded-xl border border-white/10 bg-surface p-5 sm:p-6">
       <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-        <label className="text-sm font-semibold">Product
-          <select value={productId} onChange={event => setProductId(event.target.value)} className="mt-2 w-full rounded-lg border border-white/15 bg-black px-3 py-3 text-white outline-none focus:border-brand">
-            {products.map(product => <option key={product.id} value={product.id}>{product.name}{product.selectorNote ? ` — ${product.selectorNote}` : ''}</option>)}
-          </select>
-        </label>
-        <label className="text-sm font-semibold">Reporting market
-          <select value={reporterCode} onChange={event => setReporterCode(event.target.value)} className="mt-2 w-full rounded-lg border border-white/15 bg-black px-3 py-3 text-white outline-none focus:border-brand">
-            {reporters.map(reporter => <option key={reporter.code} value={reporter.code}>{reporter.name}</option>)}
-          </select>
-        </label>
-        <label className="text-sm font-semibold">Trade direction
-          <select value={direction} onChange={event => setDirection(event.target.value as 'imports' | 'exports')} className="mt-2 w-full rounded-lg border border-white/15 bg-black px-3 py-3 text-white outline-none focus:border-brand">
-            <option value="imports">Imports</option><option value="exports">Exports</option>
-          </select>
-        </label>
-        <label className="text-sm font-semibold">Period
-          <select value={periodMonths} onChange={event => setPeriodMonths(Number(event.target.value) as 12 | 24 | 36)} className="mt-2 w-full rounded-lg border border-white/15 bg-black px-3 py-3 text-white outline-none focus:border-brand">
-            <option value={12}>Last 12 months</option><option value={24}>Last 24 months</option><option value={36}>Last 36 months</option>
-          </select>
-        </label>
+        <DeskSelect id="trade-product" label="Product" value={productId} placeholder="Select product…" searchable options={products.map(product => ({value: product.id, label: `${product.name}${product.selectorNote ? ` — ${product.selectorNote}` : ''}`}))} onChange={value => {invalidateAnalysis(); setProductId(value);}} />
+        <DeskSelect id="trade-market" label="Reporting market" value={reporterCode} placeholder="Select reporting market…" searchable options={reporters.map(reporter => ({value: reporter.code, label: reporter.name}))} onChange={value => {invalidateAnalysis(); setReporterCode(value);}} />
+        <DeskSelect id="trade-direction" label="Trade direction" value={direction} placeholder="Select direction…" options={[{value: 'imports', label: 'Imports'}, {value: 'exports', label: 'Exports'}]} onChange={value => {invalidateAnalysis(); setDirection(value as 'imports' | 'exports');}} />
+        <DeskSelect id="trade-period" label="Period" value={periodMonths ? String(periodMonths) : ''} placeholder="Select period…" options={[{value: '12', label: 'Last 12 months'}, {value: '24', label: 'Last 24 months'}, {value: '36', label: 'Last 36 months'}]} onChange={value => {invalidateAnalysis(); setPeriodMonths(value ? Number(value) as 12 | 24 | 36 : '');}} />
       </div>
       <div className="mt-6 flex flex-wrap gap-3">
-        <button disabled={loading} className="rounded-lg bg-brand px-5 py-3 font-bold text-black disabled:cursor-wait disabled:opacity-60">{loading ? 'ANALYSING TRADE DATA…' : 'RUN ANALYSIS'}</button>
+        <button disabled={!canRun} className="rounded-lg bg-brand px-5 py-3 font-bold text-black disabled:cursor-not-allowed disabled:opacity-60">{loading ? 'ANALYSING TRADE DATA…' : 'RUN ANALYSIS'}</button>
         <button type="button" onClick={clearAnalysis} className="rounded-lg border border-white/25 px-5 py-3 font-bold text-white hover:border-brand">CLEAR</button>
       </div>
       {error && <p role="alert" className="mt-4 rounded-lg border border-red-400/30 bg-red-950/30 p-4 text-sm text-red-100">{error}</p>}
