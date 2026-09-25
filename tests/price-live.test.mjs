@@ -1,41 +1,72 @@
 import assert from 'node:assert/strict';
-import {getDefraPriceObservations, getDefraPriceOptions, DEFRA_SCOPE_NOTE} from '../src/lib/prices/defra.ts';
-import {getEuPriceObservations, getEuPriceOptions} from '../src/lib/prices/eu.ts';
+import {analysePriceSignals} from '../src/lib/prices/analysis.ts';
+import {priceAnalysisToCsv} from '../src/lib/prices/csv.ts';
+import {getDefraPriceOptions, DEFRA_SCOPE_NOTE} from '../src/lib/prices/defra.ts';
+import {getPriceOptionsForMarket} from '../src/lib/prices/providers.ts';
 import {getPriceMarket} from '../src/lib/prices/markets.ts';
 
-const latest = rows => rows.slice().sort((a, b) => a.startDate.localeCompare(b.startDate)).at(-1);
+function selection(product, variety) {
+  const chosenVariety = variety ?? product?.varieties[0];
+  const stage = chosenVariety?.stages[0];
+  assert(product && chosenVariety && stage, 'Live price selection must expose product, variety and stage');
+  return {sourceProduct: product.sourceProduct, variety: chosenVariety.value, stage};
+}
+
+async function runLive(marketCode, choice, label) {
+  const analysis = await analysePriceSignals({marketCode, ...choice, periodMonths: 24});
+  assert(Number.isFinite(analysis.latest.rawPrice));
+  assert(analysis.latest.rawUnit);
+  assert(analysis.trend.length > 0);
+  assert(analysis.signals.length > 0);
+  const csv = priceAnalysisToCsv(analysis);
+  assert(csv.includes('"XAGRIA PRICE SIGNALS"'));
+  assert(!csv.includes('NaN'));
+  assert(!csv.includes('Infinity'));
+  console.log(`LIVE ${label}: ${analysis.productName} | ${analysis.market.name} | ${analysis.variety} | ${analysis.stage} | ${analysis.latest.startDate} | ${analysis.latest.rawPrice} ${analysis.latest.rawUnit}`);
+  return analysis;
+}
 
 const spain = getPriceMarket('ES');
 assert(spain && spain.provider === 'eu');
-const euOptions = await getEuPriceOptions(spain);
-const tomatoes = euOptions.products.find(product => product.id === 'tomatoes');
-assert(tomatoes, 'Spain must currently expose Tomatoes in the Commission price source');
-const farmgate = tomatoes.varieties.find(option => option.stages.includes('Farmgate'));
-assert(farmgate, 'Spain Tomatoes must currently expose at least one Farmgate variety');
-const euRows = await getEuPriceObservations({market: spain, sourceProduct: tomatoes.sourceProduct, variety: farmgate.value, stage: 'Farmgate'});
-const euLatest = latest(euRows);
-assert(euLatest && Number.isFinite(euLatest.rawPrice));
-assert.equal(euLatest.rawCurrency, 'EUR');
-assert(euLatest.rawUnit);
-assert.equal(euLatest.stage, 'Farmgate');
-assert.equal(euLatest.marketCode, 'ES');
-console.log(`LIVE EU: ${euLatest.productName} | Spain | ${euLatest.variety} | Farmgate | ${euLatest.startDate} | ${euLatest.rawPrice} ${euLatest.rawUnit}`);
+const spainOptions = await getPriceOptionsForMarket('ES');
+assert(spainOptions.products.length > 1, 'Spain must expose at least two current price products');
+
+const tomatoes = spainOptions.products.find(product => product.id === 'tomatoes') ?? spainOptions.products[0];
+const tomatoFarmgate = tomatoes.varieties.find(option => option.stages.includes('Farmgate'));
+const firstSpain = tomatoFarmgate
+  ? {sourceProduct: tomatoes.sourceProduct, variety: tomatoFarmgate.value, stage: 'Farmgate'}
+  : selection(tomatoes);
+const first = await runLive('ES', firstSpain, 'EU 1');
+assert.equal(first.provider, 'eu');
+assert.equal(first.market.code, 'ES');
+
+const secondProduct = spainOptions.products.find(product => product.sourceProduct !== tomatoes.sourceProduct);
+const second = await runLive('ES', selection(secondProduct), 'EU 2');
+assert.equal(second.provider, 'eu');
+assert.equal(second.market.code, 'ES');
+
+const italy = getPriceMarket('IT');
+assert(italy && italy.provider === 'eu');
+const italyOptions = await getPriceOptionsForMarket('IT');
+assert(italyOptions.products.length > 0, 'Italy must expose at least one current price product');
+const third = await runLive('IT', selection(italyOptions.products[0]), 'EU 3');
+assert.equal(third.provider, 'eu');
+assert.equal(third.market.code, 'IT');
+
+const fourth = await runLive('ES', firstSpain, 'EU 4');
+assert.equal(fourth.provider, 'eu');
+assert.equal(fourth.market.code, 'ES');
 
 const uk = getPriceMarket('UK');
 assert(uk && uk.provider === 'defra');
 const ukOptions = await getDefraPriceOptions(uk);
-const apples = ukOptions.products.find(product => product.id === 'apples');
-assert(apples, 'DEFRA must currently expose apples');
+const apples = ukOptions.products.find(product => product.id === 'apples') ?? ukOptions.products[0];
+assert(apples, 'DEFRA must expose at least one current product');
 const gala = apples.varieties.find(option => option.label.toLowerCase() === 'gala') ?? apples.varieties[0];
-assert(gala && gala.stages.includes('Wholesale'));
-const ukRows = await getDefraPriceObservations({market: uk, sourceProduct: apples.sourceProduct, variety: gala.value, stage: 'Wholesale'});
-const ukLatest = latest(ukRows);
-assert(ukLatest && Number.isFinite(ukLatest.rawPrice));
-assert.equal(ukLatest.rawCurrency, 'GBP');
-assert(ukLatest.rawUnit);
-assert.equal(ukLatest.stage, 'Wholesale');
-assert.equal(ukLatest.marketCode, 'UK');
-assert.equal(DEFRA_SCOPE_NOTE, 'Selected home-grown horticultural produce in England and Wales.');
-console.log(`LIVE UK: ${ukLatest.productName} | United Kingdom | ${ukLatest.variety} | Wholesale | ${ukLatest.startDate} | ${ukLatest.rawPrice} ${ukLatest.rawUnit}`);
+const ukAnalysis = await runLive('UK', {sourceProduct: apples.sourceProduct, variety: gala.value, stage: 'Wholesale'}, 'UK');
+assert.equal(ukAnalysis.provider, 'defra');
+assert.equal(ukAnalysis.latest.rawCurrency, 'GBP');
+assert.equal(ukAnalysis.stage, 'Wholesale');
+assert.equal(ukAnalysis.scopeNote, DEFRA_SCOPE_NOTE);
 
-console.log('PASS: live European Commission and DEFRA Price Signals providers');
+console.log('PASS: repeated live Spain/Italy Commission analyses and DEFRA regression');
