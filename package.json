@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "test:desk": "node --conditions=react-server tests/desk.test.mjs",
-    "test:trade": "node --experimental-strip-types tests/trade-flows.test.mjs && node --experimental-strip-types tests/trade-catalogue-provider.test.mjs && node --experimental-strip-types tests/trade-csv.test.mjs",
+    "test:trade": "node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/trade-flows.test.mjs && node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/trade-catalogue-provider.test.mjs && node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/trade-csv.test.mjs",
     "test:prices": "node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/price-signals.test.mjs && node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/price-csv.test.mjs"
   },
   "dependencies": {
