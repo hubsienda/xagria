@@ -1,6 +1,7 @@
 'use client';
 
 import {useState, type FormEvent} from 'react';
+import {tradeAnalysisCsv} from '@/lib/trade/csv';
 import type {ComparisonBlock, ReporterMarket, TradeAnalysis, TradeProduct} from '@/lib/trade/types';
 
 type Props = {products: TradeProduct[]; reporters: ReporterMarket[]};
@@ -38,6 +39,19 @@ export default function TradeFlowsClient({products, reporters}: Props) {
   const [analysis, setAnalysis] = useState<TradeAnalysis | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  function downloadCsv() {
+    if (!analysis) return;
+    const file = new Blob([tradeAnalysisCsv(analysis)], {type: 'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(file);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `xagria-trade-flows-${analysis.reporter.code.toLowerCase()}-${analysis.product.id}-${analysis.latestMonth}.csv`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
 
   async function runAnalysis(event: FormEvent) {
     event.preventDefault();
@@ -89,7 +103,7 @@ export default function TradeFlowsClient({products, reporters}: Props) {
       <section>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div><h2 className="text-2xl font-bold">{analysis.product.name} · {analysis.reporter.name}</h2><p className="mt-2 text-sm text-muted">{analysis.direction === 'imports' ? 'Imports' : 'Exports'} · Last {analysis.periodMonths} months · Commodity code group {analysis.productCodeLabel}</p>{analysis.productScopeNote && <p className="mt-2 max-w-3xl text-xs text-muted">Statistical scope: {analysis.productScopeNote}</p>}</div>
-          <p className="text-sm font-semibold text-brand">Data through: {formatMonth(analysis.latestMonth)}</p>
+          <div className="flex flex-wrap items-center gap-4"><p className="text-sm font-semibold text-brand">Data through: {formatMonth(analysis.latestMonth)}</p><button type="button" onClick={downloadCsv} className="rounded-lg border border-brand px-4 py-2 text-sm font-bold text-brand hover:bg-brand hover:text-black">Download analysis (CSV)</button></div>
         </div>
         <div className="mt-5 grid gap-4 sm:grid-cols-3">
           <div className="rounded-xl border border-white/10 bg-surface p-5"><p className="text-xs uppercase tracking-wide text-muted">Total quantity</p><p className="mt-2 text-2xl font-bold">{formatTonnes(analysis.summary.quantityKg)}</p></div>

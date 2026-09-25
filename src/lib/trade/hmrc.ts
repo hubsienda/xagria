@@ -26,10 +26,21 @@ function periodToMonthId(period: string) {
   return Number(period.replace('-', ''));
 }
 
-function commodityFilter(mapping: ProductSourceMapping) {
-  const field = mapping.commodityField;
-  if (field !== 'Hs6Code' && field !== 'Cn8Code') throw new Error('INVALID_HMRC_MAPPING');
-  return `(${mapping.codes.map(code => `Commodity/${field} eq '${code}'`).join(' or ')})`;
+async function commodityIds(mapping: ProductSourceMapping) {
+  if (mapping.commodityField !== 'Hs6Code' && mapping.commodityField !== 'Cn8Code') throw new Error('INVALID_HMRC_MAPPING');
+  const params = new URLSearchParams({
+    '$filter': mapping.codes.map(code => `${mapping.commodityField} eq '${code}'`).join(' or '),
+    '$select': 'CommodityId',
+    '$top': '1000',
+  });
+  const data = await fetchHmrc<{CommodityId?: number}>('/Commodity', params);
+  const ids = Array.from(new Set(data.value?.map(row => row.CommodityId).filter((id): id is number => typeof id === 'number') ?? []));
+  if (!ids.length) throw new TradeDataError('No UK trade data were returned for this product and period.');
+  return ids;
+}
+
+function idFilter(ids: number[]) {
+  return `(${ids.map(id => `CommodityId eq ${id}`).join(' or ')})`;
 }
 
 function flowFilter(direction: TradeDirection) {
@@ -67,23 +78,34 @@ async function fetchCountries() {
 }
 
 export async function fetchHmrcLatestAvailableMonth(mapping: ProductSourceMapping, direction: TradeDirection) {
-  const params = new URLSearchParams({
-    '$filter': `${flowFilter(direction)} and ${commodityFilter(mapping)}`,
+  const ids = await commodityIds(mapping);
+  // HMRC rejects an unbounded OTS orderby (HTTP 403). Date is small; probe
+  // recent published months from newest to oldest for this commodity and flow.
+  const currentYear = new Date().getUTCFullYear();
+  const dates = await fetchHmrc<{MonthId?: number}>('/Date', new URLSearchParams({
+    '$filter': `MonthId ge ${(currentYear - 2) * 100 + 1}`,
     '$select': 'MonthId',
-    '$orderby': 'MonthId desc',
-    '$top': '1',
-  });
-  const data = await fetchHmrc<HmrcOts>('/OTS', params, LATEST_REVALIDATE_SECONDS);
-  const monthId = data.value?.[0]?.MonthId;
-  if (!monthId) throw new TradeDataError('No UK trade data were returned for this product and period.');
-  return monthIdToPeriod(monthId);
+    '$top': '36',
+  }), LATEST_REVALIDATE_SECONDS);
+  const months = Array.from(new Set(dates.value?.map(row => row.MonthId).filter((month): month is number => typeof month === 'number') ?? [])).sort((a, b) => b - a);
+  for (const month of months.slice(0, 18)) {
+    const params = new URLSearchParams({
+      '$filter': `MonthId eq ${month} and ${flowFilter(direction)} and ${idFilter(ids)}`,
+      '$select': 'MonthId',
+      '$top': '1',
+    });
+    const data = await fetchHmrc<HmrcOts>('/OTS', params, LATEST_REVALIDATE_SECONDS);
+    if (data.value?.length) return monthIdToPeriod(month);
+  }
+  throw new TradeDataError('No recent UK trade data were returned for this product.');
 }
 
 export async function fetchHmrcTradeRecords(mapping: ProductSourceMapping, direction: TradeDirection, sinceTimePeriod: string, untilTimePeriod: string): Promise<TradeRecord[]> {
+  const ids = await commodityIds(mapping);
   const since = periodToMonthId(sinceTimePeriod);
   const until = periodToMonthId(untilTimePeriod);
   const params = new URLSearchParams({
-    '$filter': `${flowFilter(direction)} and MonthId ge ${since} and MonthId le ${until} and ${commodityFilter(mapping)}`,
+    '$filter': `${flowFilter(direction)} and MonthId ge ${since} and MonthId le ${until} and ${idFilter(ids)}`,
     '$select': 'MonthId,FlowTypeId,CommodityId,CountryId,Value,NetMass,SuppressionIndex',
     '$top': '40000',
   });
