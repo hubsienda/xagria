@@ -32,6 +32,23 @@ try {
   assert.equal(calls, 2);
 
   calls = 0;
+  const retryTimeout = await fetchEuJson({
+    url: 'https://example.test/timeout', context, revalidateSeconds: 1, expectArray: true,
+    fetchImpl: async () => {
+      calls += 1;
+      if (calls === 1) {
+        const error = new Error('request timed out');
+        error.name = 'TimeoutError';
+        throw error;
+      }
+      return new Response('[]', {status: 200});
+    },
+    sleepImpl: async () => {},
+  });
+  assert.deepEqual(retryTimeout, []);
+  assert.equal(calls, 2);
+
+  calls = 0;
   const sleeps = [];
   const retry429 = await fetchEuJson({
     url: 'https://example.test/429', context, revalidateSeconds: 1, expectArray: true,
