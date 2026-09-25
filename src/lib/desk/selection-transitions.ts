@@ -1,4 +1,4 @@
-import type {PricePeriod, PriceStage} from '@/lib/prices/types';
+import type {PricePeriod, PriceStage} from '../prices/types';
 
 export interface PriceSignalSelection {
   marketCode: string;
