@@ -4,12 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/trade-catalogue-provider.test.mjs",
+    "build": "next build && npm run typecheck && npm run test:desk && npm run test:trade && npm run test:prices && npm run test:controls",
     "start": "next start",
     "lint": "next lint",
+    "typecheck": "tsc --noEmit",
     "test:desk": "node --conditions=react-server tests/desk.test.mjs",
     "test:trade": "node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/trade-flows.test.mjs && node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/trade-catalogue-provider.test.mjs && node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/trade-csv.test.mjs",
-    "test:prices": "node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/price-signals.test.mjs && node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/price-csv.test.mjs"
+    "test:prices": "node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/price-signals.test.mjs && node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/price-resilience.test.mjs && node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/price-csv.test.mjs",
+    "test:controls": "node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/tool-controls.test.mjs",
+    "test:prices:live": "node --conditions=react-server --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/price-live.test.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",
