@@ -79,13 +79,24 @@ export async function getEuPriceObservations(input: {market: PriceMarket; source
   const sourceStage = sourceStageForPriceStage(input.stage);
   if (!sourceStage || input.stage === 'Wholesale') throw new Error('INVALID_STAGE');
   const identity = priceProductIdentity(input.sourceProduct);
-  const rows = await euRows(input.market.code, monthsAgo(40), {product: input.sourceProduct, variety: input.variety, stage: sourceStage}, 'analysis');
+  const beginDate = monthsAgo(40);
+  let rows = await euRows(input.market.code, beginDate, {product: input.sourceProduct, variety: input.variety, stage: sourceStage}, 'analysis');
+
+  // Some valid Commission labels (notably the long Ware-potatoes category) are
+  // discoverable in the Member-State feed but return 404 when echoed through the
+  // product/variety query parameters. Fall back only after an empty exact request,
+  // keep the stage filter server-side, and then require the exact official variety
+  // locally so unrelated series can never leak into the analysis.
+  if (!rows.length) {
+    rows = await euRows(input.market.code, beginDate, {stage: sourceStage}, 'analysis');
+  }
+
   const observations: PriceObservation[] = [];
   for (const row of rows) {
     const startDate = isoFromEu(row.beginDate);
     const endDate = isoFromEu(row.endDate ?? row.beginDate);
     const rawPrice = parseReportedPrice(row.price ?? '');
-    if (!startDate || rawPrice == null || !row.unit || !row.variety || !row.productStage || EU_SOURCE_STAGE_MAP[row.productStage] !== input.stage) continue;
+    if (row.variety !== input.variety || !startDate || rawPrice == null || !row.unit || !row.productStage || EU_SOURCE_STAGE_MAP[row.productStage] !== input.stage) continue;
     const currency = inferCurrency(row.price ?? '', row.unit, 'EUR');
     const normalised = normaliseMassPrice(rawPrice, currency, row.unit);
     observations.push({
