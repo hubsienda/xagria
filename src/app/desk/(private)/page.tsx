@@ -5,7 +5,7 @@ const tools = [
   {name: 'Market Check', description: 'Assess a product, market and commercial question.'},
   {name: 'Market Radar', description: 'Watch selected markets for changes worth investigating.'},
   {name: 'Trade Flows', description: 'Explore where agricultural products move, compare supplying origins and detect changes worth investigating.', href: '/desk/trade-flows', status: 'LIVE'},
-  {name: 'Price Signals', description: 'Review price movements with their source and market context.'},
+  {name: 'Price Signals', description: 'Review official fresh-produce price movements, compare periods and detect changes worth investigating.', href: '/desk/price-signals', status: 'LIVE'},
   {name: 'Weather and Supply Risk', description: 'Consider weather conditions that may affect production and supply.'},
   {name: 'Find Suppliers', description: 'Research potential suppliers for a defined sourcing need.'},
   {name: 'Find Buyers', description: 'Research prospective buyers and routes to market.'},
