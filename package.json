@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && npm run test:trade",
+    "build": "next build && node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/trade-flows.test.mjs",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
