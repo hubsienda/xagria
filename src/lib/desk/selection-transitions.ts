@@ -18,6 +18,14 @@ export interface TradeFlowSelection {
 export const blankPriceSignalSelection = (): PriceSignalSelection => ({marketCode: '', productId: '', variety: '', stage: '', periodMonths: ''});
 export const blankTradeFlowSelection = (): TradeFlowSelection => ({productId: '', reporterCode: '', direction: '', periodMonths: ''});
 
+export function clearPriceSignalSelection(_current?: Partial<PriceSignalSelection>) {
+  return blankPriceSignalSelection();
+}
+
+export function clearTradeFlowSelection(_current?: Partial<TradeFlowSelection>) {
+  return blankTradeFlowSelection();
+}
+
 export function priceSelectionAfterMarketChange(current: PriceSignalSelection, marketCode: string): PriceSignalSelection {
   return {...current, marketCode, productId: '', variety: '', stage: ''};
 }
