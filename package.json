@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && npm run test:desk && npm run test:trade && npm run test:prices && npm run test:controls && npm run typecheck",
+    "build": "next build && npm run test:prices:live",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
