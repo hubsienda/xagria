@@ -10,9 +10,10 @@
     "typecheck": "tsc --noEmit",
     "test:desk": "node --conditions=react-server tests/desk.test.mjs",
     "test:trade": "node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/trade-flows.test.mjs && node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/trade-catalogue-provider.test.mjs && node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/trade-csv.test.mjs",
-    "test:prices": "node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/price-signals.test.mjs && node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/price-resilience.test.mjs && node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/price-csv.test.mjs",
-    "test:controls": "node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/tool-controls.test.mjs",
-    "test:prices:live": "node --conditions=react-server --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/price-live.test.mjs"
+    "test:prices": "node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/price-signals.test.mjs && node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/price-options.test.mjs && node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/price-resilience.test.mjs && node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/price-csv.test.mjs",
+    "test:controls": "node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/desk-select.test.mjs && node --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/tool-controls.test.mjs",
+    "test:prices:live": "node --conditions=react-server --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/price-live.test.mjs",
+    "test:trade:live": "node --conditions=react-server --experimental-strip-types --experimental-loader=./tests/ts-loader.mjs tests/trade-live.test.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -21,8 +22,7 @@
     "next-intl": "^4.0.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
-    "server-only": "^0.0.1",
-    "tailwind-merge": "^2.5.5"
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@types/node": "^20.17.10",
