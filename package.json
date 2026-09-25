@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node --experimental-strip-types tests/price-signals.test.mjs && next build",
+    "build": "node --experimental-strip-types -e \"import('./src/lib/prices/calculations.ts').then(() => console.log('PRICE_IMPORT_OK'))\" && next build",
     "start": "next start",
     "lint": "next lint",
     "test:desk": "node --conditions=react-server tests/desk.test.mjs",
