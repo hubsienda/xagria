@@ -1,6 +1,6 @@
 'use client';
 
-import {useEffect, useState, type FormEvent} from 'react';
+import {useEffect, useRef, useState, type FormEvent} from 'react';
 import {priceAnalysisFilename, priceAnalysisToCsv} from '@/lib/prices/csv';
 import type {PriceAnalysis, PriceComparison, PriceMarket, PriceOptions, PricePeriod, PriceProductOption, PriceStage} from '@/lib/prices/types';
 
@@ -40,11 +40,21 @@ export default function PriceSignalsClient({markets}: Props) {
   const [analysis, setAnalysis] = useState<PriceAnalysis | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState('');
+  const analysisRequestId = useRef(0);
+
+  function invalidateAnalysis() {
+    analysisRequestId.current += 1;
+    setAnalysis(null);
+    setAnalysisLoading(false);
+    setAnalysisError('');
+  }
 
   useEffect(() => {
     let cancelled = false;
+    analysisRequestId.current += 1;
+    setAnalysis(null); setAnalysisLoading(false); setAnalysisError('');
     async function load() {
-      setOptionsLoading(true); setOptionsError(''); setOptions(null); setAnalysis(null);
+      setOptionsLoading(true); setOptionsError(''); setOptions(null);
       try {
         const response = await fetch('/desk/api/price-signals', {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({mode: 'options', marketCode})});
         const payload = await response.json() as {options?: PriceOptions; error?: string};
@@ -65,13 +75,15 @@ export default function PriceSignalsClient({markets}: Props) {
   const selectedVariety = selectedProduct?.varieties.find(item => item.value === variety);
 
   function changeProduct(value: string) {
-    setSourceProduct(value); setAnalysis(null);
+    invalidateAnalysis();
+    setSourceProduct(value);
     const selection = firstSelection(options?.products.find(product => product.sourceProduct === value));
     setVariety(selection.variety); setStage(selection.stage as PriceStage | '');
   }
 
   function changeVariety(value: string) {
-    setVariety(value); setAnalysis(null);
+    invalidateAnalysis();
+    setVariety(value);
     const selected = selectedProduct?.varieties.find(item => item.value === value);
     setStage(selected?.stages[0] ?? '');
   }
@@ -79,15 +91,20 @@ export default function PriceSignalsClient({markets}: Props) {
   async function runAnalysis(event: FormEvent) {
     event.preventDefault();
     if (!sourceProduct || !variety || !stage) return;
+    const requestId = ++analysisRequestId.current;
     setAnalysisLoading(true); setAnalysisError('');
     try {
       const response = await fetch('/desk/api/price-signals', {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({mode: 'analyse', marketCode, sourceProduct, variety, stage, periodMonths})});
       const payload = await response.json() as {analysis?: PriceAnalysis; error?: string};
       if (!response.ok || !payload.analysis) throw new Error(payload.error || 'Price analysis could not be loaded.');
+      if (requestId !== analysisRequestId.current) return;
       setAnalysis(payload.analysis);
     } catch (error) {
+      if (requestId !== analysisRequestId.current) return;
       setAnalysis(null); setAnalysisError(error instanceof Error ? error.message : 'Price analysis could not be loaded.');
-    } finally { setAnalysisLoading(false); }
+    } finally {
+      if (requestId === analysisRequestId.current) setAnalysisLoading(false);
+    }
   }
 
   function downloadCsv() {
@@ -121,12 +138,12 @@ export default function PriceSignalsClient({markets}: Props) {
           </select>
         </label>
         <label className="text-sm font-semibold">Price stage
-          <select disabled={!selectedVariety} value={stage} onChange={event => {setStage(event.target.value as PriceStage); setAnalysis(null);}} className="mt-2 w-full rounded-lg border border-white/15 bg-black px-3 py-3 text-white outline-none focus:border-brand disabled:opacity-50">
+          <select disabled={!selectedVariety} value={stage} onChange={event => {invalidateAnalysis(); setStage(event.target.value as PriceStage);}} className="mt-2 w-full rounded-lg border border-white/15 bg-black px-3 py-3 text-white outline-none focus:border-brand disabled:opacity-50">
             {selectedVariety?.stages.map(value => <option key={value} value={value}>{value}</option>)}
           </select>
         </label>
         <label className="text-sm font-semibold">Period
-          <select value={periodMonths} onChange={event => setPeriodMonths(Number(event.target.value) as PricePeriod)} className="mt-2 w-full rounded-lg border border-white/15 bg-black px-3 py-3 text-white outline-none focus:border-brand">
+          <select value={periodMonths} onChange={event => {invalidateAnalysis(); setPeriodMonths(Number(event.target.value) as PricePeriod);}} className="mt-2 w-full rounded-lg border border-white/15 bg-black px-3 py-3 text-white outline-none focus:border-brand">
             <option value={12}>Last 12 months</option><option value={24}>Last 24 months</option><option value={36}>Last 36 months</option>
           </select>
         </label>
